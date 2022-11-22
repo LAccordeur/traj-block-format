@@ -235,7 +235,7 @@ void do_self_contained_traj_block(struct traj_point **points, int points_num, vo
     struct seg_meta_pair meta_pairs[meta_pair_array_size];
     init_seg_meta_pair_array(&meta_pair_array, meta_pairs, meta_pair_array_size);
 
-    split_traj_points_via_point_num(points, points_num, 2, &meta_pair_array, meta_pair_array_size);
+    split_traj_points_via_point_num(points, points_num, 40, &meta_pair_array, meta_pair_array_size);
 
     assemble_traj_block(&meta_pair_array, block, block_size);
     free_tmp_seg_data(&meta_pair_array);

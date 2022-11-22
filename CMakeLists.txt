@@ -22,6 +22,7 @@ add_library(traj_block_format
         src/simple_storage.c
         src/simple_query_engine.c
         src/hashset_int.c
+        src/query_verification_util.c
         include/normalization_util.h
         include/traj_block_format.h
         include/porto_dataset_reader.h
@@ -30,8 +31,12 @@ add_library(traj_block_format
         include/simple_storage.h
         include/simple_query_engine.h
         include/hashset_int.h
+        include/query_verification_util.h
         include/log.h
         )
 
 add_executable(uthashtest src/uthashtest.c)
+
+add_executable(mymain src/mymain.c)
+target_link_libraries(mymain ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 

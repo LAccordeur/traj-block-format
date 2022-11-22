@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include "hashset_int.h"
+#include "log.h"
 
 void init_index_entry(struct index_entry *entry) {
     entry->oid_array_size = -1;
@@ -22,7 +23,7 @@ void init_index_entry(struct index_entry *entry) {
 
 void free_index_entry(struct index_entry *entry) {
     if (entry->block_physical_ptr != NULL) {
-        free(entry->block_physical_ptr);
+        // free(entry->block_physical_ptr);  // freed by storage, not here
         entry->block_physical_ptr = NULL;
         free(entry->oid_array);
         entry->oid_array = NULL;
@@ -67,9 +68,9 @@ void fill_index_entry(struct index_entry *entry, struct traj_point **points, int
 }
 
 void init_index_entry_storage(struct index_entry_storage *storage) {
-    storage->current_index = 0;
+    storage->current_index = -1;
     storage->total_size = 1000;
-    storage->index_entry_base = malloc(1000 * sizeof(struct index_entry));
+    storage->index_entry_base = (struct index_entry **) malloc(1000 * sizeof(struct index_entry*));
 }
 
 void free_index_entry_storage(struct index_entry_storage *storage) {
@@ -78,15 +79,19 @@ void free_index_entry_storage(struct index_entry_storage *storage) {
         free(storage->index_entry_base[i]);
         storage->index_entry_base[i] = NULL;
     }
+    free(storage->index_entry_base);
 }
 
 void append_index_entry_to_storage(struct index_entry_storage *storage, struct index_entry *entry) {
+    storage->current_index++;
+
     if (storage->current_index < storage->total_size) {
         (storage->index_entry_base)[storage->current_index] = entry;
-        storage->current_index++;
+        //storage->current_index++;
     } else {
         // we need to extend array
         int new_total_size = storage->total_size * 2;
+        debug_print("extend index storage from size %d to size %d\n", storage->total_size, new_total_size);
         struct index_entry **tmp_base = malloc(new_total_size * sizeof(void*));
         for (int i = 0; i < storage->total_size; i++) {
             tmp_base[i] = (storage->index_entry_base)[i];
@@ -95,6 +100,7 @@ void append_index_entry_to_storage(struct index_entry_storage *storage, struct i
         storage->index_entry_base = tmp_base;
 
         (storage->index_entry_base)[storage->current_index] = entry;
-        storage->current_index++;
+        //storage->current_index++;
+        storage->total_size = new_total_size;
     }
 }

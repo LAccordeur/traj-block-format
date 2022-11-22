@@ -22,4 +22,6 @@ struct address_pair append_traj_block_to_storage(struct traj_storage *storage, v
 
 void free_traj_storage(struct traj_storage *storage);
 
+void* fetch_traj_data_via_logical_pointer(struct traj_storage *storage, int logical_pointer);
+
 #endif //TRAJ_BLOCK_FORMAT_SIMPLE_STORAGE_H

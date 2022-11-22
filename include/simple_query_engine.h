@@ -22,7 +22,7 @@ struct id_temporal_predicate {
 };
 
 struct spatio_temporal_range_predicate {
-    int lon_min;
+    int lon_min;    // normalized value, same below
     int lon_max;
     int lat_min;
     int lat_max;
@@ -36,8 +36,8 @@ void free_query_engine(struct simple_query_engine *engine);
 
 void ingest_data_via_time_partition(struct simple_query_engine *engine, FILE *fp, int block_num);
 
-void id_temporal_query(struct simple_query_engine *engine, struct id_temporal_predicate *predicate);
+int id_temporal_query(struct simple_query_engine *engine, struct id_temporal_predicate *predicate);
 
-void spatio_temporal_query(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate);
+int spatio_temporal_query(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate);
 
 #endif //TRAJ_BLOCK_FORMAT_SIMPLE_QUERY_ENGINE_H
