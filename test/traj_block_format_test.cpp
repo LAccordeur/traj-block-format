@@ -10,6 +10,7 @@ extern "C" {
 }
 
 TEST(formattest, create) {
+    int block_size = 4096;
     int points_num = 4;
     struct traj_point **points = allocate_points_memory(points_num);
     FILE *fp = fopen("/home/yangguo/Data/DataSet/Trajectory/TaxiPorto/archive/porto_data_v2.csv", "r");

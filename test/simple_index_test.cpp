@@ -24,8 +24,10 @@ static void print_index_entry(struct index_entry *entry) {
 static void print_entry_storage(struct index_entry_storage *storage) {
     printf("index_entry_base: %p\n", storage->index_entry_base);
     printf("current index: %d\n", storage->current_index);
-    printf("total_size: %d\n", storage->total_size);
+    printf("total_size: %d\n\n", storage->total_size);
 }
+
+
 
 TEST(testindex, init_entry) {
     struct index_entry entry;
@@ -69,5 +71,73 @@ TEST(testindex, create_entry) {
     print_index_entry(entry_storage.index_entry_base[entry_storage.current_index]);
     free_points_memory(points, 1);
     free_index_entry_storage(&entry_storage);
+}
+
+TEST(testindex, serialize_entry) {
+    struct traj_point **points = allocate_points_memory(1);
+    points[0]->oid = 12;
+    points[0]->normalized_longitude = 111;
+    points[0]->normalized_latitude = 111;
+    points[0]->timestamp_sec = 111;
+
+    struct index_entry *entry = (struct index_entry *)malloc(sizeof(struct index_entry));
+    init_index_entry(entry);
+
+    fill_index_entry(entry, points, 1, NULL, 1111);
+
+    void *index_block = malloc(4096);
+    serialize_index_entry(entry, index_block);
+
+    struct index_entry *result = (struct index_entry *)malloc(sizeof(struct index_entry));
+    deserialize_index_entry(index_block, result);
+    free_index_entry(entry);
+    free_index_entry(result);
+    free(index_block);
+}
+
+
+TEST(testindex, serialization) {
+    struct serialized_index_storage serialized_storage;
+    init_serialized_index_storage(&serialized_storage);
+
+
+
+    struct index_entry_storage entry_storage;
+    init_index_entry_storage(&entry_storage);
+    print_entry_storage(&entry_storage);
+
+    struct traj_point **points = allocate_points_memory(1);
+    points[0]->oid = 12;
+    points[0]->normalized_longitude = 111;
+    points[0]->normalized_latitude = 111;
+    points[0]->timestamp_sec = 111;
+
+    for (int i = 0; i < 1002; i++) {
+        struct index_entry *entry = (struct index_entry *)malloc(sizeof(struct index_entry));
+        init_index_entry(entry);
+
+        fill_index_entry(entry, points, 1, NULL, 1111);
+        append_index_entry_to_storage(&entry_storage, entry);
+        if (i == 1001) {
+            entry->block_logical_adr = 21231;
+            print_index_entry(entry);
+        }
+
+    }
+    print_entry_storage(&entry_storage);
+    print_index_entry(entry_storage.index_entry_base[entry_storage.current_index]);
+
+    serialize_index_entry_storage(&entry_storage, &serialized_storage);
+
+    struct index_entry_storage result;
+    init_index_entry_storage(&result);
+    deserialize_index_entry_storage(&serialized_storage, &result);
+
+    print_entry_storage(&result);
+    print_index_entry(result.index_entry_base[result.current_index]);
+    free_index_entry_storage(&result);
+    free_points_memory(points, 1);
+    free_index_entry_storage(&entry_storage);
+    free_serialized_index_storage(&serialized_storage);
 }
 

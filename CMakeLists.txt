@@ -32,6 +32,7 @@ add_library(traj_block_format
         include/simple_query_engine.h
         include/hashset_int.h
         include/query_verification_util.h
+        include/common_util.h
         include/log.h
         )
 

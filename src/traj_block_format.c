@@ -8,39 +8,40 @@
 #include "traj_block_format.h"
 #include "traj_processing.h"
 #include "log.h"
-#define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute)
+#include "common_util.h"
+//#define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute)
 
-const int OID_SIZE = size_of_attribute(struct traj_point, oid);
-const int TIMESTAMP_SIZE = size_of_attribute(struct traj_point, timestamp_sec);
-const int LONGITUDE_SIZE = size_of_attribute(struct traj_point, normalized_longitude);
-const int LATITUDE_SIZE = size_of_attribute(struct traj_point, normalized_latitude);
-const int OID_OFFSET = 0;
-const int TIMESTAMP_OFFSET = OID_OFFSET + OID_SIZE;
-const int LONGITUDE_OFFSET = TIMESTAMP_OFFSET + TIMESTAMP_SIZE;
-const int LATITUDE_OFFSET = LONGITUDE_OFFSET + LONGITUDE_SIZE;
-const int TRAJ_POINT_SIZE = OID_SIZE + TIMESTAMP_SIZE + LONGITUDE_SIZE + LATITUDE_SIZE;
+static const int OID_SIZE = size_of_attribute(struct traj_point, oid);
+static const int TIMESTAMP_SIZE = size_of_attribute(struct traj_point, timestamp_sec);
+static const int LONGITUDE_SIZE = size_of_attribute(struct traj_point, normalized_longitude);
+static const int LATITUDE_SIZE = size_of_attribute(struct traj_point, normalized_latitude);
+static const int OID_OFFSET = 0;
+static const int TIMESTAMP_OFFSET = OID_OFFSET + OID_SIZE;
+static const int LONGITUDE_OFFSET = TIMESTAMP_OFFSET + TIMESTAMP_SIZE;
+static const int LATITUDE_OFFSET = LONGITUDE_OFFSET + LONGITUDE_SIZE;
+static const int TRAJ_POINT_SIZE = OID_SIZE + TIMESTAMP_SIZE + LONGITUDE_SIZE + LATITUDE_SIZE;
 
-const int LON_MIN_SIZE = size_of_attribute(struct seg_meta, lon_min);
-const int LON_MAX_SIZE = size_of_attribute(struct seg_meta, lon_max);
-const int LAT_MIN_SIZE = size_of_attribute(struct seg_meta, lat_min);
-const int LAT_MAX_SIZE = size_of_attribute(struct seg_meta, lat_max);
-const int TIME_MIN_SIZE = size_of_attribute(struct seg_meta, time_min);
-const int TIME_MAX_SIZE = size_of_attribute(struct seg_meta, time_max);
-const int SEG_OFFSET_SIZE = size_of_attribute(struct seg_meta, seg_offset);
-const int SEG_SIZE_SIZE = size_of_attribute(struct seg_meta, seg_size);
-const int LON_MIN_OFFSET = 0;
-const int LON_MAX_OFFSET = LON_MIN_OFFSET + LON_MIN_SIZE;
-const int LAT_MIN_OFFSET = LON_MAX_OFFSET + LON_MAX_SIZE;
-const int LAT_MAX_OFFSET = LAT_MIN_OFFSET + LAT_MIN_SIZE;
-const int TIME_MIN_OFFSET = LAT_MAX_OFFSET + LAT_MAX_SIZE;
-const int TIME_MAX_OFFSET = TIME_MIN_OFFSET + TIME_MIN_SIZE;
-const int SEG_OFFSET_OFFSET = TIME_MAX_OFFSET + TIME_MAX_SIZE;
-const int SEG_SIZE_OFFSET = SEG_OFFSET_OFFSET + SEG_OFFSET_SIZE;
-const int SEG_META_SIZE = LON_MIN_SIZE + LON_MAX_SIZE + LAT_MIN_SIZE + LAT_MAX_SIZE + TIME_MIN_SIZE + TIME_MAX_SIZE + SEG_OFFSET_SIZE + SEG_SIZE_SIZE;
+static const int LON_MIN_SIZE = size_of_attribute(struct seg_meta, lon_min);
+static const int LON_MAX_SIZE = size_of_attribute(struct seg_meta, lon_max);
+static const int LAT_MIN_SIZE = size_of_attribute(struct seg_meta, lat_min);
+static const int LAT_MAX_SIZE = size_of_attribute(struct seg_meta, lat_max);
+static const int TIME_MIN_SIZE = size_of_attribute(struct seg_meta, time_min);
+static const int TIME_MAX_SIZE = size_of_attribute(struct seg_meta, time_max);
+static const int SEG_OFFSET_SIZE = size_of_attribute(struct seg_meta, seg_offset);
+static const int SEG_SIZE_SIZE = size_of_attribute(struct seg_meta, seg_size);
+static const int LON_MIN_OFFSET = 0;
+static const int LON_MAX_OFFSET = LON_MIN_OFFSET + LON_MIN_SIZE;
+static const int LAT_MIN_OFFSET = LON_MAX_OFFSET + LON_MAX_SIZE;
+static const int LAT_MAX_OFFSET = LAT_MIN_OFFSET + LAT_MIN_SIZE;
+static const int TIME_MIN_OFFSET = LAT_MAX_OFFSET + LAT_MAX_SIZE;
+static const int TIME_MAX_OFFSET = TIME_MIN_OFFSET + TIME_MIN_SIZE;
+static const int SEG_OFFSET_OFFSET = TIME_MAX_OFFSET + TIME_MAX_SIZE;
+static const int SEG_SIZE_OFFSET = SEG_OFFSET_OFFSET + SEG_OFFSET_SIZE;
+static const int SEG_META_SIZE = LON_MIN_SIZE + LON_MAX_SIZE + LAT_MIN_SIZE + LAT_MAX_SIZE + TIME_MIN_SIZE + TIME_MAX_SIZE + SEG_OFFSET_SIZE + SEG_SIZE_SIZE;
 
-const int HEADER_SEG_COUNT_SIZE = size_of_attribute(struct traj_block_header, seg_count);
-const int HEADER_SEG_COUNT_OFFSET = 0;
-const int HEADER_SIZE = HEADER_SEG_COUNT_SIZE;
+static const int HEADER_SEG_COUNT_SIZE = size_of_attribute(struct traj_block_header, seg_count);
+static const int HEADER_SEG_COUNT_OFFSET = 0;
+static const int HEADER_SIZE = HEADER_SEG_COUNT_SIZE;
 
 
 

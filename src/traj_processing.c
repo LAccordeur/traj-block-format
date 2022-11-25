@@ -59,6 +59,10 @@ int split_traj_points_via_point_num(struct traj_point **points, int points_num, 
     return 0;
 }
 
+int split_traj_points_via_point_num_and_seg_num() {
+
+}
+
 void print_seg_meta(struct seg_meta *meta) {
     printf("lon_min: %d, lon_max: %d, lat_min: %d, lat_max: %d, time_min: %d, time_max: %d, seg_offset: %d, seg_size: %d\n",
            meta->lon_min, meta->lon_max, meta->lat_min, meta->lat_max, meta->time_min, meta->time_max, meta->seg_offset, meta->seg_size);

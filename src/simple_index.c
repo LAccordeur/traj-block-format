@@ -7,6 +7,171 @@
 #include <limits.h>
 #include "hashset_int.h"
 #include "log.h"
+#include "common_util.h"
+
+#define INDEX_BLOCK_SIZE 4096
+
+static const int OID_ARRAY_SIZE_SIZE = size_of_attribute(struct index_entry, oid_array_size);
+static const int OID_ARRAY_ITEM_SIZE = sizeof(int);
+static const int LON_MIN_SIZE = size_of_attribute(struct index_entry, lon_min);
+static const int LON_MAX_SIZE = size_of_attribute(struct index_entry, lon_max);
+static const int LAT_MIN_SIZE = size_of_attribute(struct index_entry, lat_min);
+static const int LAT_MAX_SIZE = size_of_attribute(struct index_entry, lat_max);
+static const int TIME_MIN_SIZE = size_of_attribute(struct index_entry, time_min);
+static const int TIME_MAX_SIZE = size_of_attribute(struct index_entry, time_max);
+static const int BLOCK_LOGICAL_ADR_SIZE = size_of_attribute(struct index_entry, block_logical_adr);
+
+
+/*
+ * index entry storage layout: | lon_min | lon_max | lat_min | lat_max | time_min | time_max | block_logical_adr | oid_array_size | oid_array (variable length) |
+ * */
+static const int LON_MIN_OFFSET = 0;
+static const int LON_MAX_OFFSET = LON_MIN_OFFSET + LON_MIN_SIZE;
+static const int LAT_MIN_OFFSET = LON_MAX_OFFSET + LON_MAX_SIZE;
+static const int LAT_MAX_OFFSET = LAT_MIN_OFFSET + LAT_MIN_SIZE;
+static const int TIME_MIN_OFFSET = LAT_MAX_OFFSET + LAT_MAX_SIZE;
+static const int TIME_MAX_OFFSET = TIME_MIN_OFFSET + TIME_MIN_SIZE;
+static const int BLOCK_LOGICAL_ADR_OFFSET = TIME_MAX_OFFSET + TIME_MAX_SIZE;
+static const int OID_ARRAY_SIZE_OFFSET = BLOCK_LOGICAL_ADR_OFFSET + BLOCK_LOGICAL_ADR_SIZE;
+static const int OID_ARRAY_OFFSET = OID_ARRAY_SIZE_OFFSET + OID_ARRAY_SIZE_SIZE;
+
+static int calculate_oid_array_space(int oid_array_size) {
+    return oid_array_size * OID_ARRAY_ITEM_SIZE;
+}
+
+static int calculate_index_entry_space(int oid_array_size) {
+    return LON_MIN_SIZE + LON_MAX_SIZE + LAT_MIN_SIZE + LAT_MAX_SIZE + TIME_MIN_SIZE + TIME_MAX_SIZE + BLOCK_LOGICAL_ADR_SIZE + OID_ARRAY_SIZE_SIZE + oid_array_size * OID_ARRAY_ITEM_SIZE;
+}
+
+void serialize_index_entry(struct index_entry *source, void *destination) {
+    char *d = destination;
+    memcpy(d + LON_MIN_OFFSET, &(source->lon_min), LON_MIN_SIZE);
+    memcpy(d + LON_MAX_OFFSET, &(source->lon_max), LON_MAX_SIZE);
+    memcpy(d + LAT_MIN_OFFSET, &(source->lat_min), LAT_MIN_SIZE);
+    memcpy(d + LAT_MAX_OFFSET, &(source->lat_max), LAT_MAX_SIZE);
+    memcpy(d + TIME_MIN_OFFSET, &(source->time_min), TIME_MIN_SIZE);
+    memcpy(d + TIME_MAX_OFFSET, &(source->time_max), TIME_MAX_SIZE);
+    memcpy(d + BLOCK_LOGICAL_ADR_OFFSET, &(source->block_logical_adr), BLOCK_LOGICAL_ADR_SIZE);
+    memcpy(d + OID_ARRAY_SIZE_OFFSET, &(source->oid_array_size), OID_ARRAY_SIZE_OFFSET);
+    memcpy(d + OID_ARRAY_OFFSET, source->oid_array, calculate_oid_array_space(source->oid_array_size));
+}
+
+void deserialize_index_entry(void* source, struct index_entry *destination) {
+    char *s = source;
+    memcpy(&(destination->lon_min), s + LON_MIN_OFFSET, LON_MIN_SIZE);
+    memcpy(&(destination->lon_max), s + LON_MAX_OFFSET, LON_MAX_SIZE);
+    memcpy(&(destination->lat_min), s + LAT_MIN_OFFSET, LAT_MIN_SIZE);
+    memcpy(&(destination->lat_max), s + LAT_MAX_OFFSET, LAT_MAX_SIZE);
+    memcpy(&(destination->time_min), s + TIME_MIN_OFFSET, TIME_MIN_SIZE);
+    memcpy(&(destination->time_max), s + TIME_MAX_OFFSET, TIME_MAX_SIZE);
+    memcpy(&(destination->block_logical_adr), s + BLOCK_LOGICAL_ADR_OFFSET, BLOCK_LOGICAL_ADR_SIZE);
+    memcpy(&(destination->oid_array_size), s + OID_ARRAY_SIZE_OFFSET, OID_ARRAY_SIZE_SIZE);
+    int oid_array_space = calculate_oid_array_space(destination->oid_array_size);
+    int *oid_array = malloc(oid_array_space);
+    memcpy(oid_array, s + OID_ARRAY_OFFSET, oid_array_space);
+    destination->oid_array = oid_array;
+    destination->block_physical_ptr = NULL;
+}
+
+void init_serialized_index_storage(struct serialized_index_storage *storage) {
+    storage->current_index = -1;
+    storage->total_size = 1000;
+    storage->index_block_base = (void**) malloc(1000 * sizeof(void*));
+}
+
+void free_serialized_index_storage(struct serialized_index_storage *storage) {
+    for (int i = 0; i <= storage->current_index; i++) {
+        free(storage->index_block_base[i]);
+        storage->index_block_base[i] = NULL;
+    }
+    free(storage->index_block_base);
+}
+
+void append_serialized_index_block_to_storage(struct serialized_index_storage *storage, void *block) {
+    storage->current_index++;
+
+    if (storage->current_index < storage->total_size) {
+        (storage->index_block_base)[storage->current_index] = block;
+    } else {
+        // we need to extend array
+        int new_total_size = storage->total_size * 2;
+        debug_print("extend serialized index storage from size %d to size %d\n", storage->total_size, new_total_size);
+        void **tmp_base = malloc(new_total_size * sizeof(void*));
+        for (int i = 0; i < storage->total_size; i++) {
+            tmp_base[i] = (storage->index_block_base)[i];
+        }
+        free(storage->index_block_base);
+        storage->index_block_base = tmp_base;
+
+        (storage->index_block_base)[storage->current_index] = block;
+        storage->total_size = new_total_size;
+    }
+}
+
+void serialize_index_entry_storage(struct index_entry_storage *entry_storage, struct serialized_index_storage *serialized_storage) {
+
+    int current_offset_in_block = 4;    // the first 4 byte are used to record the total num of entries
+    void *index_block = malloc(INDEX_BLOCK_SIZE);
+    memset((char*)index_block, 0, INDEX_BLOCK_SIZE);
+
+    int total_serialized_count = 0;
+    int count = 0;
+    for (int i = 0; i <= entry_storage->current_index; i++) {
+        struct index_entry *entry = entry_storage->index_entry_base[i];
+        int serialized_space = calculate_index_entry_space(entry->oid_array_size);
+        if (current_offset_in_block + serialized_space <= INDEX_BLOCK_SIZE) {
+            serialize_index_entry(entry, (char*)index_block + current_offset_in_block);
+            current_offset_in_block += serialized_space;
+            count++;
+
+        } else {
+            // this serialized block is full, so we add it to the storage and create a new block
+            append_serialized_index_block_to_storage(serialized_storage, index_block);
+            memcpy(index_block, &count, 4);
+            total_serialized_count += count;
+            index_block = malloc(INDEX_BLOCK_SIZE);
+            current_offset_in_block = 4;
+            count = 0;
+            memset((char*)index_block, 0, INDEX_BLOCK_SIZE);
+            serialize_index_entry(entry, (char*)index_block + current_offset_in_block);
+            current_offset_in_block += serialized_space;
+            count++;
+        }
+    }
+
+    // handle the last block that not full
+    append_serialized_index_block_to_storage(serialized_storage, index_block);
+    memcpy(index_block, &count, 4);
+    total_serialized_count += count;
+    debug_print("[serialize_index_entry_storage] expected serialized count: %d\n", entry_storage->current_index + 1);
+    debug_print("[serialize_index_entry_storage] total serialized count: %d\n", total_serialized_count);
+}
+
+void deserialize_index_entry_storage(struct serialized_index_storage *serialized_storage, struct index_entry_storage *entry_storage) {
+
+    int total_deserialized_count = 0;
+
+    int serialized_space = 0;
+    for (int i = 0; i <= serialized_storage->current_index; i++) {
+        char *block_base = serialized_storage->index_block_base[i];
+        int count = 0;
+        int current_offset_in_block = 4;
+        memcpy(&count, block_base, 4);
+        total_deserialized_count += count;
+        for (int j = 0; j < count; j++) {
+            //printf("i: %d, j: %d\n", i, j);
+            struct index_entry *entry = malloc(sizeof(struct index_entry));
+            deserialize_index_entry(block_base + current_offset_in_block, entry);
+            append_index_entry_to_storage(entry_storage, entry);
+            serialized_space = calculate_index_entry_space(entry->oid_array_size);
+            current_offset_in_block += serialized_space;
+        }
+    }
+    debug_print("[deserialize_index_entry_storage] total deserialized count: %d\n", total_deserialized_count);
+    //free_serialized_index_storage(serialized_storage);
+}
+
+
 
 void init_index_entry(struct index_entry *entry) {
     entry->oid_array_size = -1;
