@@ -5,10 +5,10 @@
 #include "simple_query_engine.h"
 #include "porto_dataset_reader.h"
 #include "traj_block_format.h"
+#include "config.h"
 
 #include <stdlib.h>
-
-#define TRAJ_BLOCK_SIZE 4096    // 4 KB
+#include "log.h"
 
 static int check_oid_exist(const int *oids, int array_size, int checked_oid) {
     for (int i = 0; i < array_size; i++) {
@@ -33,7 +33,7 @@ void ingest_data_via_time_partition(struct simple_query_engine *engine, FILE *fp
     struct traj_storage *data_storage = &engine->data_storage;
     struct index_entry_storage *index_storage = &engine->index_storage;
     // trajectory block info
-    int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, 8);
+    int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM);
 
     for (int i = 0; i < block_num; i++) {
         struct traj_point **points = allocate_points_memory(points_num);
@@ -49,6 +49,8 @@ void ingest_data_via_time_partition(struct simple_query_engine *engine, FILE *fp
         append_index_entry_to_storage(index_storage, entry);
         free_points_memory(points, points_num);
     }
+
+    debug_print("[ingest_data_via_time_partition] num of ingesting data points: %d\n", points_num * (block_num - 1));
 
 }
 
@@ -76,7 +78,7 @@ int id_temporal_query(struct simple_query_engine *engine, struct id_temporal_pre
             parse_traj_block_for_seg_meta_section(data_block, meta_array, block_header.seg_count);
             for (int j = 0; j < block_header.seg_count; j++) {
                 struct seg_meta meta_item = meta_array[j];
-                if (predicate->time_min <= meta_item.time_min && predicate->time_max >= meta_item.time_min) {
+                if (predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min) {
                     int data_seg_points_num = meta_item.seg_size / get_traj_point_size();
                     struct traj_point **points = allocate_points_memory(data_seg_points_num);
                     parse_traj_block_for_seg_data(data_block, meta_item.seg_offset, points, data_seg_points_num);
@@ -126,7 +128,7 @@ int spatio_temporal_query(struct simple_query_engine *engine, struct spatio_temp
             parse_traj_block_for_seg_meta_section(data_block, meta_array, block_header.seg_count);
             for (int j = 0; j < block_header.seg_count; j++) {
                 struct seg_meta meta_item = meta_array[j];
-                if (predicate->time_min <= meta_item.time_min && predicate->time_max >= meta_item.time_min) {
+                if (predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min) {
                     int data_seg_points_num = meta_item.seg_size / get_traj_point_size();
                     struct traj_point **points = allocate_points_memory(data_seg_points_num);
                     parse_traj_block_for_seg_data(data_block, meta_item.seg_offset, points, data_seg_points_num);

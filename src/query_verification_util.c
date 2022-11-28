@@ -3,10 +3,11 @@
 //
 #include "query_verification_util.h"
 #include "porto_dataset_reader.h"
+#include "config.h"
 
 int verify_id_temporal_query(FILE *fp, struct id_temporal_predicate *predicate, int block_num) {
     int result_count = 0;
-    int points_num = 2000;
+    int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM);
     struct traj_point **points = NULL;
     for (int i = 0; i < block_num; i++) {
         points = allocate_points_memory(points_num);
@@ -23,11 +24,12 @@ int verify_id_temporal_query(FILE *fp, struct id_temporal_predicate *predicate, 
         free_points_memory(points, points_num);
     }
 
+    return result_count;
 }
 
 int verify_spatio_temporal_query(FILE *fp, struct spatio_temporal_range_predicate *predicate, int block_num) {
     int result_count = 0;
-    int points_num = 2000;
+    int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM);
     struct traj_point **points = NULL;
     for (int i = 0; i < block_num; i++) {
         points = allocate_points_memory(points_num);
@@ -46,4 +48,5 @@ int verify_spatio_temporal_query(FILE *fp, struct spatio_temporal_range_predicat
         }
         free_points_memory(points, points_num);
     }
+    return result_count;
 }

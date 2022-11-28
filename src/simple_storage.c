@@ -4,6 +4,7 @@
 #include "simple_storage.h"
 #include "log.h"
 #include <stdlib.h>
+#include "traj_block_format.h"
 
 void init_traj_storage(struct traj_storage *storage) {
     storage->current_index = -1;
@@ -36,6 +37,23 @@ struct address_pair append_traj_block_to_storage(struct traj_storage *storage, v
         storage->total_size = new_total_size;
     }
     return addresses;
+}
+
+int calculate_total_num_of_points_in_storage(struct traj_storage *storage) {
+    int total_num = 0;
+    for (int i = 0; i < storage->current_index; i++) {
+        void* data_block = storage->traj_blocks_base[i];
+        struct traj_block_header block_header;
+        parse_traj_block_for_header(data_block, &block_header);
+        struct seg_meta meta_array[block_header.seg_count];
+        parse_traj_block_for_seg_meta_section(data_block, meta_array, block_header.seg_count);
+        for (int j = 0; j < block_header.seg_count; j++) {
+            struct seg_meta meta_item = meta_array[j];
+            int data_seg_points_num = meta_item.seg_size / get_traj_point_size();
+            total_num += data_seg_points_num;
+        }
+    }
+    return total_num;
 }
 
 void* fetch_traj_data_via_logical_pointer(struct traj_storage *storage, int logical_pointer) {

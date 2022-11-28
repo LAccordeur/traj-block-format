@@ -9,6 +9,7 @@
 #include "traj_processing.h"
 #include "log.h"
 #include "common_util.h"
+#include "config.h"
 //#define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute)
 
 static const int OID_SIZE = size_of_attribute(struct traj_point, oid);
@@ -231,12 +232,12 @@ void do_self_contained_traj_block(struct traj_point **points, int points_num, vo
     // sort and split trajectories
     sort_traj_points(points, points_num);
 
-    int meta_pair_array_size = 100;
+    int meta_pair_array_size = SPLIT_SEGMENT_NUM;
     struct seg_meta_pair_itr meta_pair_array;
     struct seg_meta_pair meta_pairs[meta_pair_array_size];
     init_seg_meta_pair_array(&meta_pair_array, meta_pairs, meta_pair_array_size);
 
-    split_traj_points_via_point_num(points, points_num, 40, &meta_pair_array, meta_pair_array_size);
+    split_traj_points_via_point_num_and_seg_num(points, points_num, &meta_pair_array, meta_pair_array_size);
 
     assemble_traj_block(&meta_pair_array, block, block_size);
     free_tmp_seg_data(&meta_pair_array);

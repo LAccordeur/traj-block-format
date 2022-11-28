@@ -24,4 +24,6 @@ void free_traj_storage(struct traj_storage *storage);
 
 void* fetch_traj_data_via_logical_pointer(struct traj_storage *storage, int logical_pointer);
 
+int calculate_total_num_of_points_in_storage(struct traj_storage *storage);
+
 #endif //TRAJ_BLOCK_FORMAT_SIMPLE_STORAGE_H

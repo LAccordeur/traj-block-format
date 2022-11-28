@@ -43,4 +43,7 @@ add_executable(simple_query_engine_test simple_query_engine_test.cpp)
 target_link_libraries(simple_query_engine_test gtest gtest_main)
 target_link_libraries(simple_query_engine_test ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 
+add_executable(query_workload_reader_test query_workload_reader_test.cpp)
+target_link_libraries(query_workload_reader_test gtest gtest_main)
+target_link_libraries(query_workload_reader_test ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 
