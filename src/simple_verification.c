@@ -65,5 +65,5 @@ static void verify_spatio_temporal_query_exe() {
 
 
 int main(void) {
-    verify_id_temporal_query_exe();
+    verify_spatio_temporal_query_exe();
 }

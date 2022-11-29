@@ -51,4 +51,6 @@ add_executable(isp_descriptor_test isp_descriptor_test.cpp)
 target_link_libraries(isp_descriptor_test gtest gtest_main)
 target_link_libraries(isp_descriptor_test ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 
-
+add_executable(seg_meta_store_test seg_meta_store_test.cpp)
+target_link_libraries(seg_meta_store_test gtest gtest_main)
+target_link_libraries(seg_meta_store_test ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)

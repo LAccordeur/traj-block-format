@@ -84,6 +84,7 @@ void free_serialized_index_storage(struct serialized_index_storage *storage) {
         storage->index_block_base[i] = NULL;
     }
     free(storage->index_block_base);
+    storage->index_block_base = NULL;
 }
 
 void append_serialized_index_block_to_storage(struct serialized_index_storage *storage, void *block) {
@@ -94,7 +95,7 @@ void append_serialized_index_block_to_storage(struct serialized_index_storage *s
     } else {
         // we need to extend array
         int new_total_size = storage->total_size * 2;
-        debug_print("extend serialized index storage from size %d to size %d\n", storage->total_size, new_total_size);
+        debug_print("[append_serialized_index_block_to_storage] extend serialized index storage from size %d to size %d\n", storage->total_size, new_total_size);
         void **tmp_base = malloc(new_total_size * sizeof(void*));
         for (int i = 0; i < storage->total_size; i++) {
             tmp_base[i] = (storage->index_block_base)[i];
@@ -255,7 +256,7 @@ void append_index_entry_to_storage(struct index_entry_storage *storage, struct i
     } else {
         // we need to extend array
         int new_total_size = storage->total_size * 2;
-        debug_print("extend index storage from size %d to size %d\n", storage->total_size, new_total_size);
+        debug_print("[append_index_entry_to_storage] extend index storage from size %d to size %d\n", storage->total_size, new_total_size);
         struct index_entry **tmp_base = malloc(new_total_size * sizeof(void*));
         for (int i = 0; i < storage->total_size; i++) {
             tmp_base[i] = (storage->index_entry_base)[i];

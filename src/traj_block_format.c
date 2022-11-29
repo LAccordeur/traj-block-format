@@ -50,6 +50,10 @@ int get_traj_point_size() {
     return TRAJ_POINT_SIZE;
 }
 
+int get_seg_meta_size() {
+    return SEG_META_SIZE;
+}
+
 void serialize_traj_point(struct traj_point* source, void* destination) {
     char *d = destination;
     memcpy(d + OID_OFFSET, &(source->oid), OID_SIZE);
@@ -241,6 +245,20 @@ void do_self_contained_traj_block(struct traj_point **points, int points_num, vo
 
     assemble_traj_block(&meta_pair_array, block, block_size);
     free_tmp_seg_data(&meta_pair_array);
+}
+
+void extract_seg_meta_section(void* self_contained_block, void* destination) {
+    struct traj_block_header header;
+    parse_traj_block_for_header(self_contained_block, &header);
+    int block_offset = HEADER_SIZE;
+    int seg_meta_section_size = SEG_META_SIZE * header.seg_count;
+    memcpy(destination, self_contained_block + block_offset, seg_meta_section_size);
+}
+
+int get_seg_meta_section_size(void* self_contained_block) {
+    struct traj_block_header header;
+    parse_traj_block_for_header(self_contained_block, &header);
+    return SEG_META_SIZE * header.seg_count;
 }
 
 void free_tmp_seg_data(struct seg_meta_pair_itr *pair_array) {

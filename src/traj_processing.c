@@ -90,7 +90,7 @@ void print_seg_meta(struct seg_meta *meta) {
 }
 
 void print_seg_meta_pair(struct seg_meta_pair *meta_pair) {
-    printf("seg_meta: ");
+    printf("seg_meta_section: ");
     print_seg_meta(&(meta_pair->meta));
     printf("seg_data ptr: %p\n", meta_pair->seg_data);
     printf("seg_length: %d\n", meta_pair->seg_length);

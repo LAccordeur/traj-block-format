@@ -128,7 +128,9 @@ int spatio_temporal_query(struct simple_query_engine *engine, struct spatio_temp
             parse_traj_block_for_seg_meta_section(data_block, meta_array, block_header.seg_count);
             for (int j = 0; j < block_header.seg_count; j++) {
                 struct seg_meta meta_item = meta_array[j];
-                if (predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min) {
+                if (predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min
+                && predicate->lon_min <= meta_item.lon_max && predicate->lon_max >= meta_item.lon_min
+                && predicate->lat_min <= meta_item.lat_max && predicate->lat_max >= meta_item.lat_min) {
                     int data_seg_points_num = meta_item.seg_size / get_traj_point_size();
                     struct traj_point **points = allocate_points_memory(data_seg_points_num);
                     parse_traj_block_for_seg_data(data_block, meta_item.seg_offset, points, data_seg_points_num);

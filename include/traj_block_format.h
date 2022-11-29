@@ -61,6 +61,10 @@ int assemble_traj_block(struct seg_meta_pair_itr *pair_array, void* block, int b
 
 void do_self_contained_traj_block(struct traj_point **points, int points_num, void* block, int block_size);
 
+void extract_seg_meta_section(void* self_contained_block, void* destination);
+
+int get_seg_meta_section_size(void* self_contained_block);
+
 void parse_traj_block_for_header(void* block, struct traj_block_header *header);
 
 void parse_traj_block_for_seg_meta_section(void* block, struct seg_meta *meta_array, int array_size);
@@ -70,6 +74,8 @@ void parse_traj_block_for_seg_data(void* block, int offset, struct traj_point **
 void free_tmp_seg_data(struct seg_meta_pair_itr *pair_array);
 
 int get_traj_point_size();
+
+int get_seg_meta_size();
 
 void serialize_traj_point(struct traj_point* source, void* destination);
 
