@@ -8,8 +8,7 @@
 #include "hashset_int.h"
 #include "log.h"
 #include "common_util.h"
-
-#define INDEX_BLOCK_SIZE 4096
+#include "config.h"
 
 static const int OID_ARRAY_SIZE_SIZE = size_of_attribute(struct index_entry, oid_array_size);
 static const int OID_ARRAY_ITEM_SIZE = sizeof(int);

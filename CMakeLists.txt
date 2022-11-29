@@ -24,6 +24,7 @@ add_library(traj_block_format
         src/hashset_int.c
         src/query_verification_util.c
         src/query_workload_reader.c
+        src/isp_descriptor.c
         include/normalization_util.h
         include/traj_block_format.h
         include/porto_dataset_reader.h
@@ -34,6 +35,7 @@ add_library(traj_block_format
         include/hashset_int.h
         include/query_verification_util.h
         include/query_workload_reader.h
+        include/isp_descriptor.h
         include/common_util.h
         include/log.h
         )
