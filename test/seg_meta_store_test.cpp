@@ -9,6 +9,7 @@ extern "C" {
 #include "config.h"
 #include "traj_block_format.h"
 #include "porto_dataset_reader.h"
+#include "simple_query_engine.h"
 }
 
 static void parse_seg_meta_section(void *metadata, struct seg_meta *meta_array, int array_size) {

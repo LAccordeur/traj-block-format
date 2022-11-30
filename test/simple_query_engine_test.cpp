@@ -81,3 +81,30 @@ TEST(queryengine, spatiotemporal) {
     free_query_engine(&query_engine);
 }
 
+TEST(queryengine, estimate) {
+    FILE *fp = fopen("/home/yangguo/Data/DataSet/Trajectory/TaxiPorto/archive/porto_data_v2.csv", "r");
+
+    // ingest data
+    struct simple_query_engine query_engine;
+    init_query_engine(&query_engine);
+    ingest_data_via_time_partition(&query_engine, fp, 2);
+
+    struct id_temporal_predicate predicate;
+    predicate.oid = 20000367;
+    predicate.time_min = 1372637312;
+    predicate.time_max = 1372640912;
+    int result_size = estimate_id_temporal_result_size(&query_engine.seg_meta_storage, &predicate);
+    printf("id temporal result size: %d\n", result_size);
+
+    struct spatio_temporal_range_predicate st_predicate;
+    st_predicate.time_min = 1372637312;
+    st_predicate.time_max = 1372640912;
+    st_predicate.lon_min = 7988543;
+    st_predicate.lon_max = 7988999;
+    st_predicate.lat_min = 12223167;
+    st_predicate.lat_max = 12223393;
+
+    int st_result_size = estimate_spatio_temporal_result_size(&query_engine.seg_meta_storage, &st_predicate);
+    printf("st temporal result size: %d\n", st_result_size);
+}
+

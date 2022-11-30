@@ -6,7 +6,6 @@
 #ifndef TRAJ_BLOCK_FORMAT_SEG_META_STORE_H
 #define TRAJ_BLOCK_FORMAT_SEG_META_STORE_H
 
-#include "simple_query_engine.h"
 
 struct seg_meta_section_entry{
     int block_logical_adr;
@@ -46,8 +45,8 @@ void append_to_seg_meta_entry_storage(struct seg_meta_section_entry_storage *sto
 
 void free_seg_meta_entry_storage(struct seg_meta_section_entry_storage *storage);
 
-int estimate_id_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct id_temporal_predicate *predicate);
-
-int estimate_spatio_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct spatio_temporal_range_predicate *predicate);
+//int estimate_id_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct id_temporal_predicate *predicate);
+//
+//int estimate_spatio_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct spatio_temporal_range_predicate *predicate);
 
 #endif //TRAJ_BLOCK_FORMAT_SEG_META_STORE_H

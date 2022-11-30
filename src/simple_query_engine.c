@@ -19,19 +19,31 @@ static int check_oid_exist(const int *oids, int array_size, int checked_oid) {
     return -1;
 }
 
+static void parse_seg_meta_section(void *metadata, struct seg_meta *meta_array, int array_size) {
+    char* m = metadata;
+    int seg_meta_size = get_seg_meta_size();
+    for (int i= 0; i < array_size; i++) {
+        char* offset = m + i * seg_meta_size;
+        deserialize_seg_meta(offset, meta_array + i);
+    }
+}
+
 void init_query_engine(struct simple_query_engine *engine) {
     init_index_entry_storage(&(engine->index_storage));
     init_traj_storage(&(engine->data_storage));
+    init_seg_meta_entry_storage(&(engine->seg_meta_storage));
 }
 
 void free_query_engine(struct simple_query_engine *engine) {
     free_index_entry_storage(&(engine->index_storage));
     free_traj_storage(&(engine->data_storage));
+    free_seg_meta_entry_storage(&(engine->seg_meta_storage));
 }
 
 void ingest_data_via_time_partition(struct simple_query_engine *engine, FILE *fp, int block_num) {
     struct traj_storage *data_storage = &engine->data_storage;
     struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
     // trajectory block info
     int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM);
 
@@ -42,11 +54,25 @@ void ingest_data_via_time_partition(struct simple_query_engine *engine, FILE *fp
         void *data = malloc(TRAJ_BLOCK_SIZE);
         do_self_contained_traj_block(points, points_num, data, TRAJ_BLOCK_SIZE);
         struct address_pair data_addresses = append_traj_block_to_storage(data_storage, data);
+
         // update index
         struct index_entry *entry = malloc(sizeof(struct index_entry));
         init_index_entry(entry);
         fill_index_entry(entry, points, points_num, data_addresses.physical_ptr, data_addresses.logical_adr);
         append_index_entry_to_storage(index_storage, entry);
+
+        // update seg_meta store
+        struct seg_meta_section_entry *seg_entry = (struct seg_meta_section_entry *)malloc(sizeof(struct seg_meta_section_entry));
+        struct traj_block_header header;
+        parse_traj_block_for_header(data, &header);
+        int meta_section_size = get_seg_meta_section_size(data);
+        void* meta_section = malloc(meta_section_size);
+        extract_seg_meta_section(data, meta_section);
+        seg_entry->seg_meta_count = header.seg_count;
+        seg_entry->seg_meta_section = meta_section;
+        seg_entry->block_logical_adr = data_addresses.logical_adr;
+        append_to_seg_meta_entry_storage(meta_storage, seg_entry);
+
         free_points_memory(points, points_num);
     }
 
@@ -152,6 +178,43 @@ int spatio_temporal_query(struct simple_query_engine *engine, struct spatio_temp
         }
     }
     return result_count;
+}
+
+int estimate_id_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct id_temporal_predicate *predicate) {
+    int result_size = 0;
+    for (int i = 0; i <= storage->current_index; i++) {
+        struct seg_meta_section_entry *entry = storage->base[i];
+        struct seg_meta meta_array[entry->seg_meta_count];
+        parse_seg_meta_section(entry->seg_meta_section, meta_array, entry->seg_meta_count);
+        for (int j = 0; j < entry->seg_meta_count; j++) {
+            struct seg_meta meta_item = meta_array[j];
+            if (predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min) {
+                result_size += meta_item.seg_size;
+            }
+        }
+    }
+    return result_size;
+
+}
+
+
+int estimate_spatio_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct spatio_temporal_range_predicate *predicate) {
+    int result_size = 0;
+    for (int i = 0; i <= storage->current_index; i++) {
+        struct seg_meta_section_entry *entry = storage->base[i];
+        struct seg_meta meta_array[entry->seg_meta_count];
+        parse_seg_meta_section(entry->seg_meta_section, meta_array, entry->seg_meta_count);
+        for (int j = 0; j < entry->seg_meta_count; j++) {
+            struct seg_meta meta_item = meta_array[j];
+
+            if (predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min
+                && predicate->lon_min <= meta_item.lon_max && predicate->lon_max >= meta_item.lon_min
+                && predicate->lat_min <= meta_item.lat_max && predicate->lat_max >= meta_item.lat_min) {
+                result_size += meta_item.seg_size;
+            }
+        }
+    }
+    return result_size;
 }
 
 

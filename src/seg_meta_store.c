@@ -183,40 +183,4 @@ void free_seg_meta_entry_storage(struct seg_meta_section_entry_storage *storage)
     free(storage->base);
 }
 
-int estimate_id_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct id_temporal_predicate *predicate) {
-    int result_size = 0;
-    for (int i = 0; i <= storage->current_index; i++) {
-        struct seg_meta_section_entry *entry = storage->base[i];
-        struct seg_meta meta_array[entry->seg_meta_count];
-        parse_seg_meta_section(entry->seg_meta_section, meta_array, entry->seg_meta_count);
-        for (int j = 0; j < entry->seg_meta_count; j++) {
-            struct seg_meta meta_item = meta_array[j];
-            if (predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min) {
-                result_size += meta_item.seg_size;
-            }
-        }
-    }
-    return result_size;
-
-}
-
-
-int estimate_spatio_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct spatio_temporal_range_predicate *predicate) {
-    int result_size = 0;
-    for (int i = 0; i <= storage->current_index; i++) {
-        struct seg_meta_section_entry *entry = storage->base[i];
-        struct seg_meta meta_array[entry->seg_meta_count];
-        parse_seg_meta_section(entry->seg_meta_section, meta_array, entry->seg_meta_count);
-        for (int j = 0; j < entry->seg_meta_count; j++) {
-            struct seg_meta meta_item = meta_array[j];
-
-            if (predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min
-                && predicate->lon_min <= meta_item.lon_max && predicate->lon_max >= meta_item.lon_min
-                && predicate->lat_min <= meta_item.lat_max && predicate->lat_max >= meta_item.lat_min) {
-                result_size += meta_item.seg_size;
-            }
-        }
-    }
-    return result_size;
-}
 
