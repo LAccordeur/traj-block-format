@@ -40,9 +40,9 @@ void serialize_seg_meta_section_entry(struct seg_meta_section_entry *source, voi
 
 void deserialize_seg_meta_section_entry(void* source, struct seg_meta_section_entry *destination) {
     char *s = source;
-    int seg_meta_section_size = get_seg_meta_size() * destination->seg_meta_count;
     memcpy(&(destination->block_logical_adr), s + BLOCK_LOGICAL_ADR_OFFSET, BLOCK_LOGICAL_ADR_SIZE);
     memcpy(&(destination->seg_meta_count), s + SEG_META_COUNT_OFFSET, SEG_META_COUNT_SIZE);
+    int seg_meta_section_size = get_seg_meta_size() * destination->seg_meta_count;
     void *seg_meta_ptr = malloc(seg_meta_section_size);
     memcpy(seg_meta_ptr, s + SEG_META_SECTION_OFFSET, seg_meta_section_size);
     destination->seg_meta_section = seg_meta_ptr;
@@ -186,7 +186,7 @@ void free_seg_meta_entry_storage(struct seg_meta_section_entry_storage *storage)
 int estimate_id_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct id_temporal_predicate *predicate) {
     int result_size = 0;
     for (int i = 0; i <= storage->current_index; i++) {
-        struct seg_meta_section_entry *entry = storage->base[storage->current_index];
+        struct seg_meta_section_entry *entry = storage->base[i];
         struct seg_meta meta_array[entry->seg_meta_count];
         parse_seg_meta_section(entry->seg_meta_section, meta_array, entry->seg_meta_count);
         for (int j = 0; j < entry->seg_meta_count; j++) {
@@ -204,7 +204,7 @@ int estimate_id_temporal_result_size(struct seg_meta_section_entry_storage *stor
 int estimate_spatio_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct spatio_temporal_range_predicate *predicate) {
     int result_size = 0;
     for (int i = 0; i <= storage->current_index; i++) {
-        struct seg_meta_section_entry *entry = storage->base[storage->current_index];
+        struct seg_meta_section_entry *entry = storage->base[i];
         struct seg_meta meta_array[entry->seg_meta_count];
         parse_seg_meta_section(entry->seg_meta_section, meta_array, entry->seg_meta_count);
         for (int j = 0; j < entry->seg_meta_count; j++) {
