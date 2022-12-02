@@ -6,6 +6,7 @@
 
 extern "C" {
 #include "simple_index.h"
+#include "persistence_manager.h"
 }
 
 static void print_index_entry(struct index_entry *entry) {
@@ -139,5 +140,52 @@ TEST(testindex, serialization) {
     free_points_memory(points, 1);
     free_index_entry_storage(&entry_storage);
     free_serialized_index_storage(&serialized_storage);
+}
+
+TEST(testindex, flush) {
+    struct serialized_index_storage serialized_storage;
+    init_serialized_index_storage(&serialized_storage);
+
+
+
+    struct index_entry_storage entry_storage;
+    init_index_entry_storage(&entry_storage);
+    print_entry_storage(&entry_storage);
+
+    struct traj_point **points = allocate_points_memory(1);
+    points[0]->oid = 12;
+    points[0]->normalized_longitude = 111;
+    points[0]->normalized_latitude = 111;
+    points[0]->timestamp_sec = 111;
+
+    for (int i = 0; i < 1002; i++) {
+        struct index_entry *entry = (struct index_entry *)malloc(sizeof(struct index_entry));
+        init_index_entry(entry);
+
+        fill_index_entry(entry, points, 1, NULL, 1111);
+        append_index_entry_to_storage(&entry_storage, entry);
+        if (i == 1001) {
+            entry->block_logical_adr = 21231;
+            print_index_entry(entry);
+        }
+
+    }
+    print_entry_storage(&entry_storage);
+    print_index_entry(entry_storage.index_entry_base[entry_storage.current_index]);
+
+    serialize_index_entry_storage(&entry_storage, &serialized_storage);
+
+
+    // test flush and rebuild
+    char* filename = "/home/yangguo/CLionProjects/traj-block-format/datafile/traj.index";
+    flush_serialized_index_storage(&serialized_storage, filename, COMMON_FS_MODE);
+
+    struct index_entry_storage rebuild_storage;
+    init_index_entry_storage(&rebuild_storage);
+    rebuild_index_storage(filename, COMMON_FS_MODE, &rebuild_storage);
+    printf("rebuild one:\n");
+    print_entry_storage(&rebuild_storage);
+    print_index_entry(rebuild_storage.index_entry_base[rebuild_storage.current_index]);
+
 }
 

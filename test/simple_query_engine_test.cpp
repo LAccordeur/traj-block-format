@@ -30,7 +30,8 @@ TEST(queryenginetest, init) {
 
 TEST(queryenginetest, ingest) {
 
-    FILE *fp = fopen("/home/yangguo/Data/DataSet/Trajectory/TaxiPorto/archive/porto_data_v2.csv", "r");
+    char filename[] = "/home/yangguo/Data/DataSet/Trajectory/TaxiPorto/archive/porto_data_v2.csv";
+    FILE *fp = fopen(filename, "r");
 
     struct simple_query_engine query_engine;
     init_query_engine(&query_engine);

@@ -5,11 +5,20 @@
 #include "log.h"
 #include <stdlib.h>
 #include "traj_block_format.h"
+#include "persistence_manager.h"
+#include "config.h"
 
 void init_traj_storage(struct traj_storage *storage) {
     storage->current_index = -1;
     storage->total_size = 1000; // initial capacity is 1000
     storage->traj_blocks_base = malloc(1000 * sizeof(void*));
+}
+
+void init_traj_storage_with_persistence(struct traj_storage *storage, char* filename, char* file_operation_mode, int fs_mode) {
+    storage->current_index = -1;
+    storage->total_size = 1000; // initial capacity is 1000
+    storage->traj_blocks_base = malloc(1000 * sizeof(void*));
+    storage->my_fp = my_fopen(filename, file_operation_mode, fs_mode);
 }
 
 struct address_pair append_traj_block_to_storage(struct traj_storage *storage, void *block_ptr) {
@@ -56,8 +65,13 @@ int calculate_total_num_of_points_in_storage(struct traj_storage *storage) {
     return total_num;
 }
 
-void* fetch_traj_data_via_logical_pointer(struct traj_storage *storage, int logical_pointer) {
-
+void fetch_traj_data_via_logical_pointer(struct traj_storage *storage, int logical_pointer, void* destination) {
+    int fs_mode = storage->my_fp->fs_mode;
+    struct my_file *my_fp = storage->my_fp;
+    my_fseek(my_fp, TRAJ_BLOCK_SIZE * logical_pointer, fs_mode);
+    //void* data_block = malloc(TRAJ_BLOCK_SIZE);
+    my_fread(destination, TRAJ_BLOCK_SIZE, 1, my_fp, fs_mode);
+    //return data_block;
 }
 
 void free_traj_storage(struct traj_storage *storage) {
@@ -67,4 +81,13 @@ void free_traj_storage(struct traj_storage *storage) {
         (storage->traj_blocks_base)[i] = NULL;
     }
     free(storage->traj_blocks_base);
+}
+
+void flush_traj_storage(struct traj_storage *storage) {
+    struct my_file *fp = storage->my_fp;
+    int fs_mode = storage->my_fp->fs_mode;
+    for (int i = 0; i <= storage->current_index; i++) {
+        void *block_ptr = storage->traj_blocks_base[i];
+        my_fwrite(block_ptr, TRAJ_BLOCK_SIZE, 1, fp, fs_mode);
+    }
 }

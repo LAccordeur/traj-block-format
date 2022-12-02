@@ -39,6 +39,10 @@ void serialize_seg_meta_section_entry_storage(struct seg_meta_section_entry_stor
 
 void deserialize_seg_meta_section_entry_storage(struct serialized_seg_meta_section_entry_storage *serialized_storage, struct seg_meta_section_entry_storage *storage);
 
+void flush_serialized_seg_meta_storage(struct serialized_seg_meta_section_entry_storage *storage, char* filename, int fs_mode);
+
+void rebuild_seg_meta_storage(char* filename, int fs_mode, struct seg_meta_section_entry_storage *storage);
+
 void init_seg_meta_entry_storage(struct seg_meta_section_entry_storage *storage);
 
 void append_to_seg_meta_entry_storage(struct seg_meta_section_entry_storage *storage, struct seg_meta_section_entry *entry);

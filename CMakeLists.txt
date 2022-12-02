@@ -26,6 +26,8 @@ add_library(traj_block_format
         src/query_workload_reader.c
         src/isp_descriptor.c
         src/seg_meta_store.c
+        src/persistence_manager.c
+        src/common_fs_layer.c
         include/normalization_util.h
         include/traj_block_format.h
         include/porto_dataset_reader.h
@@ -38,6 +40,8 @@ add_library(traj_block_format
         include/query_workload_reader.h
         include/isp_descriptor.h
         include/seg_meta_store.h
+        include/persistence_manager.h
+        include/common_fs_layer.h
         include/common_util.h
         include/log.h
         )

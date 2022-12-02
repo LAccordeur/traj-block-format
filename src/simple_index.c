@@ -9,6 +9,7 @@
 #include "log.h"
 #include "common_util.h"
 #include "config.h"
+#include "persistence_manager.h"
 
 static const int OID_ARRAY_SIZE_SIZE = size_of_attribute(struct index_entry, oid_array_size);
 static const int OID_ARRAY_ITEM_SIZE = sizeof(int);
@@ -143,8 +144,8 @@ void serialize_index_entry_storage(struct index_entry_storage *entry_storage, st
     append_serialized_index_block_to_storage(serialized_storage, index_block);
     memcpy(index_block, &count, 4);
     total_serialized_count += count;
-    debug_print("[serialize_index_entry_storage] expected serialized count: %d\n", entry_storage->current_index + 1);
-    debug_print("[serialize_index_entry_storage] total serialized count: %d\n", total_serialized_count);
+    debug_print("[serialize_index_entry_storage] expected serialized index entry count: %d\n", entry_storage->current_index + 1);
+    debug_print("[serialize_index_entry_storage] total serialized index entry count: %d\n", total_serialized_count);
 }
 
 void deserialize_index_entry_storage(struct serialized_index_storage *serialized_storage, struct index_entry_storage *entry_storage) {
@@ -167,7 +168,7 @@ void deserialize_index_entry_storage(struct serialized_index_storage *serialized
             current_offset_in_block += serialized_space;
         }
     }
-    debug_print("[deserialize_index_entry_storage] total deserialized count: %d\n", total_deserialized_count);
+    debug_print("[deserialize_index_entry_storage] total deserialized index entry count: %d\n", total_deserialized_count);
     //free_serialized_index_storage(serialized_storage);
 }
 
@@ -269,3 +270,41 @@ void append_index_entry_to_storage(struct index_entry_storage *storage, struct i
         storage->total_size = new_total_size;
     }
 }
+
+
+void flush_serialized_index_storage(struct serialized_index_storage *storage, char* filename, int fs_mode) {
+    struct my_file *fp = my_fopen(filename, "w", fs_mode);
+    int block_count = 0;
+    for (int i = 0; i <= storage->current_index; i++) {
+        void *block_ptr = storage->index_block_base[i];
+        my_fwrite(block_ptr, INDEX_BLOCK_SIZE, 1, fp, fs_mode);
+        block_count++;
+    }
+    debug_print("[flush_serialized_index_storage] total flushed index block: %d\n", block_count);
+
+}
+
+
+void rebuild_index_storage(char* filename, int fs_mode, struct index_entry_storage *storage) {
+    struct my_file *fp = my_fopen(filename, "r", fs_mode);
+
+    struct serialized_index_storage serialized_storage;
+    init_serialized_index_storage(&serialized_storage);
+
+    int read_size = -1;
+    int block_count = 0;
+    do {
+        void* index_block = malloc(INDEX_BLOCK_SIZE);
+        read_size = my_fread(index_block, 1, INDEX_BLOCK_SIZE, fp, fs_mode);
+        append_serialized_index_block_to_storage(&serialized_storage, index_block);
+        if (read_size > 0) {
+            block_count++;
+        }
+    } while (read_size > 0);
+
+    deserialize_index_entry_storage(&serialized_storage, storage);
+    free_serialized_index_storage(&serialized_storage);
+    debug_print("[rebuild_index_storage] total rebuilt index block: %d\n", block_count);
+
+}
+

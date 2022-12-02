@@ -9,6 +9,7 @@
 #include "traj_block_format.h"
 #include "common_util.h"
 #include "config.h"
+#include "persistence_manager.h"
 
 static const int BLOCK_LOGICAL_ADR_SIZE = size_of_attribute(struct seg_meta_section_entry, block_logical_adr);
 static const int SEG_META_COUNT_SIZE = size_of_attribute(struct seg_meta_section_entry, seg_meta_count);
@@ -183,4 +184,39 @@ void free_seg_meta_entry_storage(struct seg_meta_section_entry_storage *storage)
     free(storage->base);
 }
 
+void flush_serialized_seg_meta_storage(struct serialized_seg_meta_section_entry_storage *storage, char* filename, int fs_mode) {
+    struct my_file *fp = my_fopen(filename, "w", fs_mode);
+    int block_count = 0;
+    for (int i = 0; i <= storage->current_index; i++) {
+        void *block_ptr = storage->base[i];
+        my_fwrite(block_ptr, INDEX_BLOCK_SIZE, 1, fp, fs_mode);
+        block_count++;
+    }
+    debug_print("[flush_serialized_seg_meta_storage] total flushed seg meta block: %d\n", block_count);
+
+}
+
+void rebuild_seg_meta_storage(char* filename, int fs_mode, struct seg_meta_section_entry_storage *storage) {
+    struct my_file *fp = my_fopen(filename, "r", fs_mode);
+
+    struct serialized_seg_meta_section_entry_storage serialized_storage;
+    init_serialized_seg_meta_section_entry_storage(&serialized_storage);
+
+    int read_size = -1;
+    int block_count = 0;
+    do {
+        void* seg_block = malloc(INDEX_BLOCK_SIZE);
+        read_size = my_fread(seg_block, 1, INDEX_BLOCK_SIZE, fp, fs_mode);
+        append_serialized_seg_meta_block_to_storage(&serialized_storage, seg_block);
+        if (read_size > 0) {
+            block_count++;
+        }
+    } while (read_size > 0);
+
+    deserialize_seg_meta_section_entry_storage(&serialized_storage, storage);
+    free_serialized_seg_meta_section_entry_storage(&serialized_storage);
+
+    debug_print("[rebuild_seg_meta_storage] total rebuilt seg meta block: %d\n", block_count);
+
+}
 

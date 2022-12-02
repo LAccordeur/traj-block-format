@@ -94,7 +94,8 @@ int id_temporal_query(struct simple_query_engine *engine, struct id_temporal_pre
             if (entry->block_physical_ptr != NULL) {
                 data_block = entry->block_physical_ptr;
             } else {
-                data_block = fetch_traj_data_via_logical_pointer(data_storage, entry->block_logical_adr);
+                data_block = malloc(TRAJ_BLOCK_SIZE);
+                fetch_traj_data_via_logical_pointer(data_storage, entry->block_logical_adr, data_block);
             }
 
             // parse data block
@@ -144,7 +145,8 @@ int spatio_temporal_query(struct simple_query_engine *engine, struct spatio_temp
             if (entry->block_physical_ptr != NULL) {
                 data_block = entry->block_physical_ptr;
             } else {
-                data_block = fetch_traj_data_via_logical_pointer(data_storage, entry->block_logical_adr);
+                data_block = malloc(TRAJ_BLOCK_SIZE);
+                fetch_traj_data_via_logical_pointer(data_storage, entry->block_logical_adr, data_block);
             }
 
             // parse data block

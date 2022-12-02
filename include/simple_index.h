@@ -45,6 +45,22 @@ void serialize_index_entry_storage(struct index_entry_storage *entry_storage, st
 
 void deserialize_index_entry_storage(struct serialized_index_storage *serialized_storage, struct index_entry_storage *entry_storage);
 
+/**
+ * flush serialized index blocks to a file in a specific fs
+ * @param storage
+ * @param filename
+ * @param fs_mode 0 -> common fs (linux fs), 1 -> spdk fs, 2 -> spdk in-storage-computing fs
+ */
+void flush_serialized_index_storage(struct serialized_index_storage *storage, char* filename, int fs_mode);
+
+/**
+ * rebuild deserialized index block storage from a file
+ * @param filename
+ * @param fs_mode
+ * @param storage
+ */
+void rebuild_index_storage(char* filename, int fs_mode, struct index_entry_storage *storage);
+
 void init_index_entry_storage(struct index_entry_storage *storage);
 
 void append_index_entry_to_storage(struct index_entry_storage *storage, struct index_entry *entry);
