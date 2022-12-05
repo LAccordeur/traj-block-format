@@ -23,6 +23,7 @@ struct index_entry_storage {
     struct index_entry **index_entry_base;
     int current_index;
     int total_size;
+    struct my_file *my_fp;  // the file used to flush and rebuild
 };
 
 struct serialized_index_storage {
@@ -62,6 +63,8 @@ void flush_serialized_index_storage(struct serialized_index_storage *storage, ch
 void rebuild_index_storage(char* filename, int fs_mode, struct index_entry_storage *storage);
 
 void init_index_entry_storage(struct index_entry_storage *storage);
+
+void init_index_entry_storage_with_persistence(struct index_entry_storage *storage, char* filename, char* file_operation_mode, int fs_mode);
 
 void append_index_entry_to_storage(struct index_entry_storage *storage, struct index_entry *entry);
 

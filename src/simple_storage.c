@@ -70,8 +70,9 @@ void fetch_traj_data_via_logical_pointer(struct traj_storage *storage, int logic
     struct my_file *my_fp = storage->my_fp;
     my_fseek(my_fp, TRAJ_BLOCK_SIZE * logical_pointer, fs_mode);
     //void* data_block = malloc(TRAJ_BLOCK_SIZE);
-    my_fread(destination, TRAJ_BLOCK_SIZE, 1, my_fp, fs_mode);
+    my_fread(destination, 1, TRAJ_BLOCK_SIZE, my_fp, fs_mode);
     //return data_block;
+    //debug_print("[fetch_traj_data_via_logical_pointer] fetch block [%d] from file [%s] to memory [%p]\n", logical_pointer, my_fp->filename, destination);
 }
 
 void free_traj_storage(struct traj_storage *storage) {
@@ -86,8 +87,15 @@ void free_traj_storage(struct traj_storage *storage) {
 void flush_traj_storage(struct traj_storage *storage) {
     struct my_file *fp = storage->my_fp;
     int fs_mode = storage->my_fp->fs_mode;
+    int count = 0;
     for (int i = 0; i <= storage->current_index; i++) {
         void *block_ptr = storage->traj_blocks_base[i];
-        my_fwrite(block_ptr, TRAJ_BLOCK_SIZE, 1, fp, fs_mode);
+        my_fseek(fp, i * TRAJ_BLOCK_SIZE, fs_mode);
+        int result_size = my_fwrite(block_ptr, 1, TRAJ_BLOCK_SIZE, fp, fs_mode);
+        if (result_size > 0) {
+            count++;
+        }
     }
+    debug_print("[flush_traj_storage] expected flushed data block count: %d\n", storage->current_index+1);
+    debug_print("[flush_traj_storage] total flushed data block count: %d\n", count);
 }

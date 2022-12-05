@@ -70,7 +70,7 @@ TEST(queryengine, spatiotemporal) {
     // ingest data
     struct simple_query_engine query_engine;
     init_query_engine(&query_engine);
-    ingest_data_via_time_partition(&query_engine, fp, 2000);
+    ingest_data_via_time_partition(&query_engine, fp, 2);
 
     // query
     struct spatio_temporal_range_predicate predicate = {normalize_longitude(-8.610291), normalize_longitude(-8.610291),
@@ -107,5 +107,43 @@ TEST(queryengine, estimate) {
 
     int st_result_size = estimate_spatio_temporal_result_size(&query_engine.seg_meta_storage, &st_predicate);
     printf("st temporal result size: %d\n", st_result_size);
+}
+
+TEST(queryengine, flush) {
+    FILE *fp = fopen("/home/yangguo/Data/DataSet/Trajectory/TaxiPorto/archive/porto_data_v2.csv", "r");
+
+    char data_filename[] = "/home/yangguo/CLionProjects/traj-block-format/datafile/traj.data";
+    char index_filename[] = "/home/yangguo/CLionProjects/traj-block-format/datafile/traj.index";
+    char meta_filename[] = "/home/yangguo/CLionProjects/traj-block-format/datafile/traj.meta";
+
+    // ingest data
+    struct simple_query_engine query_engine;
+    struct my_file data_file = {nullptr, data_filename, "w", COMMON_FS_MODE};
+    struct my_file index_file = {nullptr, index_filename, "w", COMMON_FS_MODE};
+    struct my_file meta_file = {nullptr, meta_filename, "w", COMMON_FS_MODE};
+    init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+    ingest_and_flush_data_via_time_partition(&query_engine, fp, 2);
+}
+
+TEST(queryengine, rebuild) {
+    char data_filename[] = "/home/yangguo/CLionProjects/traj-block-format/datafile/traj.data";
+    char index_filename[] = "/home/yangguo/CLionProjects/traj-block-format/datafile/traj.index";
+    char meta_filename[] = "/home/yangguo/CLionProjects/traj-block-format/datafile/traj.meta";
+
+    // rebuild
+    struct simple_query_engine query_engine;
+    struct my_file data_file = {nullptr, data_filename, "r", COMMON_FS_MODE};
+    struct my_file index_file = {nullptr, index_filename, "r", COMMON_FS_MODE};
+    struct my_file meta_file = {nullptr, meta_filename, "r", COMMON_FS_MODE};
+    init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+
+    rebuild_query_engine_from_file(&query_engine);
+
+    struct id_temporal_predicate predicate = {20000380, 1372636850, 1372636859};
+    int result_count = id_temporal_query(&query_engine, &predicate);
+    printf("result count: %d\n", result_count);
+
+    free_query_engine(&query_engine);
+
 }
 

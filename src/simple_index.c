@@ -239,6 +239,13 @@ void init_index_entry_storage(struct index_entry_storage *storage) {
     storage->index_entry_base = (struct index_entry **) malloc(1000 * sizeof(struct index_entry*));
 }
 
+void init_index_entry_storage_with_persistence(struct index_entry_storage *storage, char* filename, char* file_operation_mode, int fs_mode) {
+    storage->current_index = -1;
+    storage->total_size = 1000;
+    storage->index_entry_base = (struct index_entry **) malloc(1000 * sizeof(struct index_entry*));
+    storage->my_fp = my_fopen(filename, file_operation_mode, fs_mode);
+}
+
 void free_index_entry_storage(struct index_entry_storage *storage) {
     for (int i = 0 ; i <= storage->current_index; i++) {
         free_index_entry(storage->index_entry_base[i]);
@@ -274,11 +281,15 @@ void append_index_entry_to_storage(struct index_entry_storage *storage, struct i
 
 void flush_serialized_index_storage(struct serialized_index_storage *storage, char* filename, int fs_mode) {
     struct my_file *fp = my_fopen(filename, "w", fs_mode);
+
     int block_count = 0;
     for (int i = 0; i <= storage->current_index; i++) {
         void *block_ptr = storage->index_block_base[i];
-        my_fwrite(block_ptr, INDEX_BLOCK_SIZE, 1, fp, fs_mode);
-        block_count++;
+        int seek_result = my_fseek(fp, i * INDEX_BLOCK_SIZE, fs_mode);
+        int write_size = my_fwrite(block_ptr, 1, INDEX_BLOCK_SIZE, fp, fs_mode);
+        if (write_size > 0) {
+            block_count++;
+        }
     }
     debug_print("[flush_serialized_index_storage] total flushed index block: %d\n", block_count);
 
@@ -296,8 +307,9 @@ void rebuild_index_storage(char* filename, int fs_mode, struct index_entry_stora
     do {
         void* index_block = malloc(INDEX_BLOCK_SIZE);
         read_size = my_fread(index_block, 1, INDEX_BLOCK_SIZE, fp, fs_mode);
-        append_serialized_index_block_to_storage(&serialized_storage, index_block);
+
         if (read_size > 0) {
+            append_serialized_index_block_to_storage(&serialized_storage, index_block);
             block_count++;
         }
     } while (read_size > 0);

@@ -25,3 +25,17 @@ TEST(fstest, read) {
     printf("buffer: %s\n", buffer);
     printf("buffer1: %s\n", buffer1);
 }
+
+TEST(fstest, readsize) {
+    char buffer[4096];
+    FILE *fp = fopen("test.txt", "r");
+    size_t result_size = fread(buffer, 1, 4096, fp);
+    printf("result size: %d\n", result_size);
+}
+
+TEST(fstest, writesize) {
+    char str[] = "helloworld1";
+    FILE *fp = fopen("test.txt", "w");
+    size_t result_size = fwrite(str, 4096, 1, fp);
+    printf("result size: %d\n", result_size);
+}

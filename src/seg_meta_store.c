@@ -153,6 +153,13 @@ void init_seg_meta_entry_storage(struct seg_meta_section_entry_storage *storage)
     storage->base = (struct seg_meta_section_entry**) malloc(1000 * sizeof(struct seg_meta_section_entry*));
 }
 
+void init_seg_meta_entry_storage_with_persistence(struct seg_meta_section_entry_storage *storage, char* filename, char* file_operation_mode, int fs_mode) {
+    storage->current_index = -1;
+    storage->array_size = 1000;
+    storage->base = (struct seg_meta_section_entry**) malloc(1000 * sizeof(struct seg_meta_section_entry*));
+    storage->my_fp = my_fopen(filename, file_operation_mode, fs_mode);
+}
+
 void append_to_seg_meta_entry_storage(struct seg_meta_section_entry_storage *storage, struct seg_meta_section_entry *entry) {
     storage->current_index++;
 
@@ -189,8 +196,11 @@ void flush_serialized_seg_meta_storage(struct serialized_seg_meta_section_entry_
     int block_count = 0;
     for (int i = 0; i <= storage->current_index; i++) {
         void *block_ptr = storage->base[i];
-        my_fwrite(block_ptr, INDEX_BLOCK_SIZE, 1, fp, fs_mode);
-        block_count++;
+        int seek_result = my_fseek(fp, i * INDEX_BLOCK_SIZE, fs_mode);
+        int result_size = my_fwrite(block_ptr, 1, INDEX_BLOCK_SIZE, fp, fs_mode);
+        if (result_size > 0) {
+            block_count++;
+        }
     }
     debug_print("[flush_serialized_seg_meta_storage] total flushed seg meta block: %d\n", block_count);
 
@@ -207,8 +217,9 @@ void rebuild_seg_meta_storage(char* filename, int fs_mode, struct seg_meta_secti
     do {
         void* seg_block = malloc(INDEX_BLOCK_SIZE);
         read_size = my_fread(seg_block, 1, INDEX_BLOCK_SIZE, fp, fs_mode);
-        append_serialized_seg_meta_block_to_storage(&serialized_storage, seg_block);
+
         if (read_size > 0) {
+            append_serialized_seg_meta_block_to_storage(&serialized_storage, seg_block);
             block_count++;
         }
     } while (read_size > 0);

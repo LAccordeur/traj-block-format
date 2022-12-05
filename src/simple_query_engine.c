@@ -34,6 +34,12 @@ void init_query_engine(struct simple_query_engine *engine) {
     init_seg_meta_entry_storage(&(engine->seg_meta_storage));
 }
 
+void init_query_engine_with_persistence(struct simple_query_engine *engine, struct my_file *data_file, struct my_file *index_file, struct my_file *meta_file) {
+    init_index_entry_storage_with_persistence(&(engine->index_storage), index_file->filename, index_file->file_operation_mode, index_file->fs_mode);
+    init_traj_storage_with_persistence(&(engine->data_storage), data_file->filename, data_file->file_operation_mode, data_file->fs_mode);
+    init_seg_meta_entry_storage_with_persistence(&(engine->seg_meta_storage), meta_file->filename, meta_file->file_operation_mode, meta_file->fs_mode);
+}
+
 void free_query_engine(struct simple_query_engine *engine) {
     free_index_entry_storage(&(engine->index_storage));
     free_traj_storage(&(engine->data_storage));
@@ -77,6 +83,42 @@ void ingest_data_via_time_partition(struct simple_query_engine *engine, FILE *fp
     }
 
     debug_print("[ingest_data_via_time_partition] num of ingesting data points: %d\n", points_num * (block_num - 1));
+
+}
+
+void ingest_and_flush_data_via_time_partition(struct simple_query_engine *engine, FILE *fp, int block_num) {
+    // ingest to memory
+    ingest_data_via_time_partition(engine, fp, block_num);
+
+    // flush memory to disk
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    // flush data storage
+    flush_traj_storage(data_storage);
+    // serialized and flush index storage
+    struct serialized_index_storage serialized_index;
+    init_serialized_index_storage(&serialized_index);
+    serialize_index_entry_storage(index_storage, &serialized_index);
+    flush_serialized_index_storage(&serialized_index, index_storage->my_fp->filename, index_storage->my_fp->fs_mode);
+    free_serialized_index_storage(&serialized_index);
+    // serialize and flush seg meta storage
+    struct serialized_seg_meta_section_entry_storage serialized_seg_meta;
+    init_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+    serialize_seg_meta_section_entry_storage(meta_storage, &serialized_seg_meta);
+    flush_serialized_seg_meta_storage(&serialized_seg_meta, meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode);
+    free_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+
+}
+
+void rebuild_query_engine_from_file(struct simple_query_engine *engine) {
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    rebuild_index_storage(index_storage->my_fp->filename, index_storage->my_fp->fs_mode, index_storage);
+    rebuild_seg_meta_storage(meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode, meta_storage);
 
 }
 

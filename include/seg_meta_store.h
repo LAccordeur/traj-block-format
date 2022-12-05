@@ -17,6 +17,7 @@ struct seg_meta_section_entry_storage {
     struct seg_meta_section_entry **base;
     int current_index;
     int array_size;
+    struct my_file *my_fp;  // the file used to flush and rebuild
 };
 
 struct serialized_seg_meta_section_entry_storage {
@@ -44,6 +45,8 @@ void flush_serialized_seg_meta_storage(struct serialized_seg_meta_section_entry_
 void rebuild_seg_meta_storage(char* filename, int fs_mode, struct seg_meta_section_entry_storage *storage);
 
 void init_seg_meta_entry_storage(struct seg_meta_section_entry_storage *storage);
+
+void init_seg_meta_entry_storage_with_persistence(struct seg_meta_section_entry_storage *storage, char* filename, char* file_operation_mode, int fs_mode);
 
 void append_to_seg_meta_entry_storage(struct seg_meta_section_entry_storage *storage, struct seg_meta_section_entry *entry);
 

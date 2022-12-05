@@ -34,9 +34,15 @@ struct spatio_temporal_range_predicate {
 
 void init_query_engine(struct simple_query_engine *engine);
 
+void init_query_engine_with_persistence(struct simple_query_engine *engine, struct my_file *data_file, struct my_file *index_file, struct my_file *meta_file);
+
 void free_query_engine(struct simple_query_engine *engine);
 
 void ingest_data_via_time_partition(struct simple_query_engine *engine, FILE *fp, int block_num);
+
+void ingest_and_flush_data_via_time_partition(struct simple_query_engine *engine, FILE *fp, int block_num);
+
+void rebuild_query_engine_from_file(struct simple_query_engine *engine);
 
 int id_temporal_query(struct simple_query_engine *engine, struct id_temporal_predicate *predicate);
 
