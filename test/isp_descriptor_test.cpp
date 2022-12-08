@@ -17,10 +17,11 @@ static void print_isp_descriptor(struct isp_descriptor *descriptor) {
     printf("lon_max: %d\n", descriptor->lon_max);
     printf("lat_min: %d\n", descriptor->lat_min);
     printf("lat_max: %d\n", descriptor->lat_max);
-    printf("dst_block_addresses: %d\n", descriptor->dst_block_address);
-    printf("dst_block_size: %d\n", descriptor->dst_block_size);
-    printf("src_block_addresses_count: %d\n", descriptor->src_block_addresses_count);
-    printf("src_block_addresses: %p\n\n", descriptor->src_block_addresses);
+    printf("lba_count: %d\n", descriptor->lba_count);
+    printf("lba_array: %p\n\n", descriptor->lba_array);
+    for (int i = 0; i < descriptor->lba_count; i++) {
+        printf("item [%d]: lba_start: %d, lba_num:%d\n", i, descriptor->lba_array[i].lba_start, descriptor->lba_array[i].lba_num);
+    }
 }
 
 TEST(isp_descriptor, test) {
@@ -33,13 +34,15 @@ TEST(isp_descriptor, test) {
     descriptor.lon_max = 13;
     descriptor.lat_min = 21;
     descriptor.lat_max = 34;
-    descriptor.dst_block_address = 111;
-    descriptor.dst_block_size = 343;
-    descriptor.src_block_addresses_count = 99;
-    int *array = (int*)malloc(2 * sizeof(int));
-    array[0] = 22;
-    array[1] = 111;
-    descriptor.src_block_addresses = array;
+    descriptor.lba_count = 3;
+    struct lba lbas[3];
+    lbas[0].lba_start = 1;
+    lbas[0].lba_num = 1;
+    lbas[1].lba_start = 5;
+    lbas[1].lba_num = 3;
+    lbas[2].lba_start = 9;
+    lbas[2].lba_num = 2;
+    descriptor.lba_array = lbas;
 
     int descriptor_space = calculate_isp_descriptor_space(&descriptor);
     print_isp_descriptor(&descriptor);
@@ -49,7 +52,7 @@ TEST(isp_descriptor, test) {
     struct isp_descriptor result;
     deserialize_isp_descriptor(block, &result);
     print_isp_descriptor(&result);
-    free_isp_descriptor(&descriptor);
+
     free_isp_descriptor(&result);
 }
 

@@ -5,6 +5,11 @@
 #ifndef TRAJ_BLOCK_FORMAT_ISP_DESCRIPTOR_H
 #define TRAJ_BLOCK_FORMAT_ISP_DESCRIPTOR_H
 
+struct lba {
+    unsigned long int lba_start;
+    unsigned lba_num;
+};
+
 struct isp_descriptor {
     int isp_type;  // 0 means id temporal query; 1 means spatio-temporal range query
     int oid;
@@ -14,10 +19,8 @@ struct isp_descriptor {
     int lon_max;
     int lat_min;
     int lat_max;
-    int dst_block_address;
-    int dst_block_size;
-    int src_block_addresses_count;
-    int *src_block_addresses;
+    int lba_count;
+    struct lba *lba_array;
 };
 
 int calculate_isp_descriptor_space(struct isp_descriptor *descriptor);
