@@ -76,3 +76,20 @@ int calculate_isp_descriptor_space(struct isp_descriptor *descriptor) {
             calculate_lba_array_space(descriptor->lba_count);
 }
 
+void print_isp_descriptor(struct isp_descriptor *descriptor) {
+    printf("isp_type: %d\n", descriptor->isp_type);
+    printf("oid: %d\n", descriptor->oid);
+    printf("time_min: %d\n", descriptor->time_min);
+    printf("time_max: %d\n", descriptor->time_max);
+    printf("lon_min: %d\n", descriptor->lon_min);
+    printf("lon_max: %d\n", descriptor->lon_max);
+    printf("lat_min: %d\n", descriptor->lat_min);
+    printf("lat_max: %d\n", descriptor->lat_max);
+    printf("lba_count: %d\n", descriptor->lba_count);
+    printf("lba_array: %p\n", descriptor->lba_array);
+    for (int i = 0; i < descriptor->lba_count; i++) {
+        printf("item [%d]: lba_start: %d, lba_num:%d\n", i, descriptor->lba_array[i].lba_start, descriptor->lba_array[i].lba_num);
+    }
+    printf("\n");
+}
+

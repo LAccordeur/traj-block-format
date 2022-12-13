@@ -31,4 +31,6 @@ void deserialize_isp_descriptor(void *source, struct isp_descriptor *destination
 
 void free_isp_descriptor(struct isp_descriptor *descriptor);
 
+void print_isp_descriptor(struct isp_descriptor *descriptor);
+
 #endif //TRAJ_BLOCK_FORMAT_ISP_DESCRIPTOR_H
