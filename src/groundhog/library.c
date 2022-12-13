@@ -1,4 +1,4 @@
-#include "../include/library.h"
+#include "groundhog/library.h"
 
 #include <stdio.h>
 

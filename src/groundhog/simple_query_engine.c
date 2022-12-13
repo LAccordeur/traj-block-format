@@ -2,13 +2,13 @@
 // Created by yangguo on 11/16/22.
 //
 
-#include "simple_query_engine.h"
-#include "porto_dataset_reader.h"
-#include "traj_block_format.h"
-#include "config.h"
+#include "groundhog/simple_query_engine.h"
+#include "groundhog/porto_dataset_reader.h"
+#include "groundhog/traj_block_format.h"
+#include "groundhog/config.h"
 
 #include <stdlib.h>
-#include "log.h"
+#include "groundhog/log.h"
 
 static int check_oid_exist(const int *oids, int array_size, int checked_oid) {
     for (int i = 0; i < array_size; i++) {

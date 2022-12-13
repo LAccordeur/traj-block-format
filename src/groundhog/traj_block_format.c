@@ -5,11 +5,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include "traj_block_format.h"
-#include "traj_processing.h"
-#include "log.h"
-#include "common_util.h"
-#include "config.h"
+#include "groundhog/traj_block_format.h"
+#include "groundhog/traj_processing.h"
+#include "groundhog/log.h"
+#include "groundhog/common_util.h"
+#include "groundhog/config.h"
 //#define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute)
 
 static const int OID_SIZE = size_of_attribute(struct traj_point, oid);

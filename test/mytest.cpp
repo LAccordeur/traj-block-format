@@ -4,8 +4,8 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "library.h"
-#include "simple_index.h"
+#include "groundhog/library.h"
+#include "groundhog/simple_index.h"
 }
 
 TEST(mytestmain, ok) {

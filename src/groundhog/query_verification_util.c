@@ -1,9 +1,9 @@
 //
 // Created by yangguo on 11/22/22.
 //
-#include "query_verification_util.h"
-#include "porto_dataset_reader.h"
-#include "config.h"
+#include "groundhog/query_verification_util.h"
+#include "groundhog/porto_dataset_reader.h"
+#include "groundhog/config.h"
 
 int verify_id_temporal_query(FILE *fp, struct id_temporal_predicate *predicate, int block_num) {
     int result_count = 0;

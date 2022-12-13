@@ -5,8 +5,8 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "simple_query_engine.h"
-#include "normalization_util.h"
+#include "groundhog/simple_query_engine.h"
+#include "groundhog/normalization_util.h"
 }
 
 static void print_index_entry(struct index_entry *entry) {

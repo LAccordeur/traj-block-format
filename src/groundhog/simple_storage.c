@@ -1,12 +1,12 @@
 //
 // Created by yangguo on 11/16/22.
 //
-#include "simple_storage.h"
-#include "log.h"
+#include "groundhog/simple_storage.h"
+#include "groundhog/log.h"
 #include <stdlib.h>
-#include "traj_block_format.h"
-#include "persistence_manager.h"
-#include "config.h"
+#include "groundhog/traj_block_format.h"
+#include "groundhog/persistence_manager.h"
+#include "groundhog/config.h"
 
 void init_traj_storage(struct traj_storage *storage) {
     storage->current_index = -1;

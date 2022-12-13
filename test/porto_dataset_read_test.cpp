@@ -4,7 +4,7 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "porto_dataset_reader.h"
+#include "groundhog/porto_dataset_reader.h"
 }
 
 TEST(readtest, readblock) {

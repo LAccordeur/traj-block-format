@@ -5,8 +5,8 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "query_workload_reader.h"
-#include "config.h"
+#include "groundhog/query_workload_reader.h"
+#include "groundhog/config.h"
 }
 
 static void print_id_temporal_predicates(struct id_temporal_predicate **predicates, int array_size) {

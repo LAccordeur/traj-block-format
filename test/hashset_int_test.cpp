@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "hashset_int.h"
+#include "groundhog/hashset_int.h"
 }
 
 TEST(hashsettest, add) {

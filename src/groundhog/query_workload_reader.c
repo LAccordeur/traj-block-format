@@ -5,8 +5,8 @@
 #include <malloc.h>
 #include <string.h>
 #include <stdlib.h>
-#include "simple_query_engine.h"
-#include "normalization_util.h"
+#include "groundhog/simple_query_engine.h"
+#include "groundhog/normalization_util.h"
 
 static void parse_id_temporal_row(char* line, struct id_temporal_predicate *destination_row) {
     char *token = strtok(line, ",");

@@ -4,8 +4,8 @@
 
 #include <string.h>
 #include <malloc.h>
-#include "isp_descriptor.h"
-#include "common_util.h"
+#include "groundhog/isp_descriptor.h"
+#include "groundhog/common_util.h"
 
 static const int ISP_TYPE_SIZE = size_of_attribute(struct isp_descriptor, isp_type);
 static const int OID_SIZE = size_of_attribute(struct isp_descriptor, oid);

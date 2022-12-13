@@ -1,9 +1,9 @@
 //
 // Created by yangguo on 11/14/22.
 //
-#include "traj_processing.h"
+#include "groundhog/traj_processing.h"
 #include <stdlib.h>
-#include "traj_block_format.h"
+#include "groundhog/traj_block_format.h"
 #include <stdio.h>
 
 static int compare_pointed_to_data(const void *a, const void *b) {

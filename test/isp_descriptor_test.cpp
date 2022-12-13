@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "isp_descriptor.h"
+#include "groundhog/isp_descriptor.h"
 }
 
 

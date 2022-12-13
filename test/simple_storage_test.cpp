@@ -5,11 +5,11 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "simple_storage.h"
-#include "simple_query_engine.h"
-#include "config.h"
-#include "porto_dataset_reader.h"
-#include "persistence_manager.h"
+#include "groundhog/simple_storage.h"
+#include "groundhog/simple_query_engine.h"
+#include "groundhog/config.h"
+#include "groundhog/porto_dataset_reader.h"
+#include "groundhog/persistence_manager.h"
 }
 
 static void print_index_entry(struct index_entry *entry) {

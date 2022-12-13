@@ -5,8 +5,8 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "simple_index.h"
-#include "persistence_manager.h"
+#include "groundhog/simple_index.h"
+#include "groundhog/persistence_manager.h"
 }
 
 static void print_index_entry(struct index_entry *entry) {

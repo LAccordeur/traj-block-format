@@ -5,8 +5,8 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "traj_processing.h"
-#include "porto_dataset_reader.h"
+#include "groundhog/traj_processing.h"
+#include "groundhog/porto_dataset_reader.h"
 }
 
 TEST(traj_processing, sort) {

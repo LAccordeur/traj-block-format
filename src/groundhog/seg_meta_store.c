@@ -4,12 +4,12 @@
 
 #include <malloc.h>
 #include <string.h>
-#include "seg_meta_store.h"
-#include "log.h"
-#include "traj_block_format.h"
-#include "common_util.h"
-#include "config.h"
-#include "persistence_manager.h"
+#include "groundhog/seg_meta_store.h"
+#include "groundhog/log.h"
+#include "groundhog/traj_block_format.h"
+#include "groundhog/common_util.h"
+#include "groundhog/config.h"
+#include "groundhog/persistence_manager.h"
 
 static const int BLOCK_LOGICAL_ADR_SIZE = size_of_attribute(struct seg_meta_section_entry, block_logical_adr);
 static const int SEG_META_COUNT_SIZE = size_of_attribute(struct seg_meta_section_entry, seg_meta_count);

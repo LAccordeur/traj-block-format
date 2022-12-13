@@ -2,14 +2,14 @@
 // Created by yangguo on 11/16/22.
 //
 
-#include "simple_index.h"
+#include "groundhog/simple_index.h"
 #include <stdlib.h>
 #include <limits.h>
-#include "hashset_int.h"
-#include "log.h"
-#include "common_util.h"
-#include "config.h"
-#include "persistence_manager.h"
+#include "groundhog/hashset_int.h"
+#include "groundhog/log.h"
+#include "groundhog/common_util.h"
+#include "groundhog/config.h"
+#include "groundhog/persistence_manager.h"
 
 static const int OID_ARRAY_SIZE_SIZE = size_of_attribute(struct index_entry, oid_array_size);
 static const int OID_ARRAY_ITEM_SIZE = sizeof(int);

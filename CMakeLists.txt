@@ -13,43 +13,43 @@ enable_testing()
 add_subdirectory(test)
 
 add_library(traj_block_format
-        src/library.c
-        src/normalization_util.c
-        src/traj_block_format.c
-        src/porto_dataset_reader.c
-        src/traj_processing.c
-        src/simple_index.c
-        src/simple_storage.c
-        src/simple_query_engine.c
-        src/hashset_int.c
-        src/query_verification_util.c
-        src/query_workload_reader.c
-        src/isp_descriptor.c
-        src/seg_meta_store.c
-        src/persistence_manager.c
-        src/common_fs_layer.c
-        include/normalization_util.h
-        include/traj_block_format.h
-        include/porto_dataset_reader.h
-        include/traj_processing.h
-        include/simple_index.h
-        include/simple_storage.h
-        include/simple_query_engine.h
-        include/hashset_int.h
-        include/query_verification_util.h
-        include/query_workload_reader.h
-        include/isp_descriptor.h
-        include/seg_meta_store.h
-        include/persistence_manager.h
-        include/common_fs_layer.h
-        include/common_util.h
-        include/log.h
+        src/groundhog/library.c
+        src/groundhog/normalization_util.c
+        src/groundhog/traj_block_format.c
+        src/groundhog/porto_dataset_reader.c
+        src/groundhog/traj_processing.c
+        src/groundhog/simple_index.c
+        src/groundhog/simple_storage.c
+        src/groundhog/simple_query_engine.c
+        src/groundhog/hashset_int.c
+        src/groundhog/query_verification_util.c
+        src/groundhog/query_workload_reader.c
+        src/groundhog/isp_descriptor.c
+        src/groundhog/seg_meta_store.c
+        src/groundhog/persistence_manager.c
+        src/groundhog/common_fs_layer.c
+        include/groundhog/normalization_util.h
+        include/groundhog/traj_block_format.h
+        include/groundhog/porto_dataset_reader.h
+        include/groundhog/traj_processing.h
+        include/groundhog/simple_index.h
+        include/groundhog/simple_storage.h
+        include/groundhog/simple_query_engine.h
+        include/groundhog/hashset_int.h
+        include/groundhog/query_verification_util.h
+        include/groundhog/query_workload_reader.h
+        include/groundhog/isp_descriptor.h
+        include/groundhog/seg_meta_store.h
+        include/groundhog/persistence_manager.h
+        include/groundhog/common_fs_layer.h
+        include/groundhog/common_util.h
+        include/groundhog/log.h
         )
 
-add_executable(uthashtest src/uthashtest.c)
+add_executable(uthashtest src/groundhog/uthashtest.c)
 
-add_executable(mymain src/mymain.c)
+add_executable(mymain src/groundhog/mymain.c)
 target_link_libraries(mymain ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 
-add_executable(simple_verification src/simple_verification.c)
+add_executable(simple_verification src/groundhog/simple_verification.c)
 target_link_libraries(simple_verification ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)

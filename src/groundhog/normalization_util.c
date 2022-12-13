@@ -2,7 +2,7 @@
 // Created by yangguo on 11/10/22.
 //
 
-#include "normalization_util.h"
+#include "groundhog/normalization_util.h"
 
 static const int bins = 1 << PRECISION;
 static const double lon_normalizer = bins / (180.0 - (-180));

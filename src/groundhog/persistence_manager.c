@@ -3,8 +3,8 @@
 //
 
 #include <malloc.h>
-#include "persistence_manager.h"
-#include "common_fs_layer.h"
+#include "groundhog/persistence_manager.h"
+#include "groundhog/common_fs_layer.h"
 
 struct my_file *my_fopen(const char *filename, const char *file_operation_mode, int fs_mode) {
     struct my_file *my_fp = malloc(sizeof(struct my_file));

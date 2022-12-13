@@ -4,10 +4,10 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "traj_block_format.h"
-#include "log.h"
-#include "porto_dataset_reader.h"
-#include "config.h"
+#include "groundhog/traj_block_format.h"
+#include "groundhog/log.h"
+#include "groundhog/porto_dataset_reader.h"
+#include "groundhog/config.h"
 }
 
 static void parse_seg_meta_section(void *metadata, struct seg_meta *meta_array, int array_size) {

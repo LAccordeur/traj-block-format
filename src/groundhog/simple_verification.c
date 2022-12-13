@@ -3,10 +3,10 @@
 //
 
 #include <stdio.h>
-#include "simple_query_engine.h"
-#include "query_verification_util.h"
-#include "query_workload_reader.h"
-#include "log.h"
+#include "groundhog/simple_query_engine.h"
+#include "groundhog/query_verification_util.h"
+#include "groundhog/query_workload_reader.h"
+#include "groundhog/log.h"
 
 static void verify_id_temporal_query_exe() {
     FILE *data_fp = fopen("/home/yangguo/Data/DataSet/Trajectory/TaxiPorto/archive/porto_data_v2.csv", "r");
@@ -156,6 +156,6 @@ static void verify_id_temporal_query_disk_exe() {
 }
 
 
-int main(void) {
+/*int main(void) {
     verify_spatio_temporal_query_disk_exe();
-}
+}*/

@@ -5,12 +5,12 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "seg_meta_store.h"
-#include "config.h"
-#include "traj_block_format.h"
-#include "porto_dataset_reader.h"
-#include "simple_query_engine.h"
-#include "persistence_manager.h"
+#include "groundhog/seg_meta_store.h"
+#include "groundhog/config.h"
+#include "groundhog/traj_block_format.h"
+#include "groundhog/porto_dataset_reader.h"
+#include "groundhog/simple_query_engine.h"
+#include "groundhog/persistence_manager.h"
 }
 
 static void parse_seg_meta_section(void *metadata, struct seg_meta *meta_array, int array_size) {

@@ -4,8 +4,8 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include "porto_dataset_reader.h"
-#include "normalization_util.h"
+#include "groundhog/porto_dataset_reader.h"
+#include "groundhog/normalization_util.h"
 
 
 static void parse_porto_row(char* line, struct traj_point *destination_row);
