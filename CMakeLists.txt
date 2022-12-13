@@ -46,7 +46,6 @@ add_library(traj_block_format
         include/groundhog/log.h
         )
 
-add_executable(uthashtest src/groundhog/uthashtest.c)
 
 add_executable(mymain src/groundhog/mymain.c)
 target_link_libraries(mymain ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
