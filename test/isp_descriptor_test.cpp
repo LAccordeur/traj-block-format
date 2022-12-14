@@ -20,6 +20,7 @@ TEST(isp_descriptor, test) {
     descriptor.lat_min = 21;
     descriptor.lat_max = 34;
     descriptor.lba_count = 3;
+    descriptor.estimated_result_page_num = 12;
     struct lba lbas[3];
     lbas[0].lba_start = 1;
     lbas[0].lba_num = 1;

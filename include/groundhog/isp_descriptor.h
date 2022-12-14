@@ -19,6 +19,7 @@ struct isp_descriptor {
     int lon_max;
     int lat_min;
     int lat_max;
+    int estimated_result_page_num;
     int lba_count;
     struct lba *lba_array;
 };
