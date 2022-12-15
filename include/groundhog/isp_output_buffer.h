@@ -28,9 +28,9 @@ size_t put_point_data_to_isp_output_buffer(struct isp_output_buffer *output_buff
 
 void print_isp_output_buffer_info(struct isp_output_buffer *output_buffer);
 
-int parse_points_num_from_output_buffer_page(void *data_page);
+/*int parse_points_num_from_output_buffer_page(void *data_page);
 
-void deserialize_output_buffer_page(void *data_page, struct traj_point **points, int points_num);
+void deserialize_output_buffer_page(void *data_page, struct traj_point **points, int points_num);*/
 
 void format_the_last_isp_buffer_page(struct isp_output_buffer *output_buffer);
 
