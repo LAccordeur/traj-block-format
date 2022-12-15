@@ -65,20 +65,6 @@ void format_the_last_isp_buffer_page(struct isp_output_buffer *output_buffer) {
     memcpy(output_buffer->iov[output_buffer->current_iov_index].iov_base, &output_buffer->current_tuple_count, 4);
 }
 
-int parse_points_num_from_output_buffer_page(void *data_page) {
-    int count = 0;
-    memcpy(&count, data_page, 4);
-    return count;
-}
-
-void deserialize_output_buffer_page(void *data_page, struct traj_point **points, int points_num) {
-    int offset_base = 4;
-    int point_data_size = get_traj_point_size();
-    for (int i = 0; i < points_num; i++) {
-
-        deserialize_traj_point(data_page + offset_base + i * point_data_size, points[i]);
-    }
-}
 
 void print_isp_output_buffer_info(struct isp_output_buffer *output_buffer) {
     printf("iov_capacity: %d\n", output_buffer->iov_capacity);

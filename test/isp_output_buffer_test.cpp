@@ -7,7 +7,7 @@
 extern "C" {
 #include "groundhog/isp_output_buffer.h"
 #include "groundhog/traj_block_format.h"
-#include "groundhog/isp_output_buffer_host.h"
+#include "groundhog/isp_output_format.h"
 }
 
 TEST(isp_output_buffer, allocate) {

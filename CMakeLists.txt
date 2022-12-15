@@ -30,7 +30,7 @@ add_library(traj_block_format
         src/groundhog/seg_meta_store.c
         src/groundhog/persistence_manager.c
         src/groundhog/common_fs_layer.c
-        src/groundhog/isp_output_buffer.c
+        src/groundhog/isp_output_format.c
         include/groundhog/normalization_util.h
         include/groundhog/traj_block_format.h
         include/groundhog/porto_dataset_reader.h
@@ -45,7 +45,7 @@ add_library(traj_block_format
         include/groundhog/seg_meta_store.h
         include/groundhog/persistence_manager.h
         include/groundhog/common_fs_layer.h
-        include/groundhog/isp_output_buffer.h
+        include/groundhog/isp_output_format.h
         include/groundhog/common_util.h
         include/groundhog/log.h
         )
