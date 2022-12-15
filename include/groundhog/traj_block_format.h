@@ -43,6 +43,8 @@ int calculate_points_num_via_block_size(int block_size, int segment_num);
 
 int calculate_block_size_via_points_num(int points_num, int segment_num);
 
+void* calculate_point_slot_in_traj_block(void *seg_offset, int point_index_in_seg);
+
 void init_seg_meta(struct seg_meta *meta);
 
 void print_seg_meta(struct seg_meta *meta);

@@ -6,6 +6,8 @@ set(CMAKE_C_STANDARD 99)
 include_directories("${PROJECT_BINARY_DIR}"
         "${PROJECT_SOURCE_DIR}/include"
         "${PROJECT_SOURCE_DIR}/lib"
+        "${PROJECT_SOURCE_DIR}/lib/myssd_sdk"
+        "${PROJECT_SOURCE_DIR}/lib/r5poll"
         )
 
 # testing section

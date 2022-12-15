@@ -57,3 +57,8 @@ target_link_libraries(seg_meta_store_test ${CMAKE_SOURCE_DIR}/cmake-build-debug/
 
 add_executable(fs_api_test fs_api_test.cpp)
 target_link_libraries(fs_api_test gtest gtest_main)
+
+add_executable(isp_output_buffer isp_output_buffer_test.cpp
+        ${CMAKE_SOURCE_DIR}/src/groundhog/isp_output_buffer.c
+        ${CMAKE_SOURCE_DIR}/include/groundhog/isp_output_buffer.h)
+target_link_libraries(isp_output_buffer gtest gtest_main ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)

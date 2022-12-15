@@ -339,3 +339,9 @@ int calculate_block_size_via_points_num(int points_num, int segment_num) {
         return ((needed_space / 4096) + 1) * 4096;
     }
 }
+
+void* calculate_point_slot_in_traj_block(void *seg_offset, int point_index_in_seg) {
+    char *s = seg_offset;
+    char *slot = seg_offset + point_index_in_seg * TRAJ_POINT_SIZE;
+    return slot;
+}
