@@ -69,7 +69,7 @@ void deserialize_isp_descriptor(void *source, struct isp_descriptor *destination
 }
 
 void free_isp_descriptor(struct isp_descriptor *descriptor) {
-    if (descriptor->lba_array != NULL) {
+    if (descriptor->lba_count > 0 && descriptor->lba_array != NULL) {
         free(descriptor->lba_array);
         descriptor->lba_array = NULL;
     }
@@ -93,7 +93,7 @@ void print_isp_descriptor(struct isp_descriptor *descriptor) {
     printf("estimated_result_page_num: %d\n", descriptor->estimated_result_page_num);
     printf("lba_array: %p\n", descriptor->lba_array);
     for (int i = 0; i < descriptor->lba_count; i++) {
-        printf("item [%d]: lba_start: %d, lba_num:%d\n", i, descriptor->lba_array[i].lba_start, descriptor->lba_array[i].lba_num);
+        printf("item [%d]: start_lba: %d, sector_count:%d\n", i, descriptor->lba_array[i].start_lba, descriptor->lba_array[i].sector_count);
     }
     printf("\n");
 }

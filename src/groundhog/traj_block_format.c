@@ -64,10 +64,15 @@ void serialize_traj_point(struct traj_point* source, void* destination) {
 
 void deserialize_traj_point(void* source, struct traj_point* destination) {
     char *s = source;
+    //xil_printf("[deserialize_traj_point] source: %p\n", source);
     memcpy(&(destination->oid), s + OID_OFFSET, OID_SIZE);
+    //xil_printf("[deserialize_traj_point] oid src: %p, oid dst: %p, oid size: %d\n", s + OID_OFFSET, &(destination->oid), OID_SIZE);
     memcpy(&(destination->timestamp_sec), s + TIMESTAMP_OFFSET, TIMESTAMP_SIZE);
+    //xil_printf("[deserialize_traj_point] time src: %p, time dst: %p, time size: %d\n", s + TIMESTAMP_OFFSET, &(destination->timestamp_sec), TIMESTAMP_SIZE);
     memcpy(&(destination->normalized_longitude), s + LONGITUDE_OFFSET, LONGITUDE_SIZE);
+    //xil_printf("[deserialize_traj_point] lon src: %p, lon dst: %p, lon size: %d\n", s + LONGITUDE_OFFSET, &(destination->normalized_longitude), LONGITUDE_SIZE);
     memcpy(&(destination->normalized_latitude), s + LATITUDE_OFFSET, LATITUDE_SIZE);
+    //xil_printf("[deserialize_traj_point] lat src: %p, lat dst: %p, lon size: %d\n", s + LATITUDE_OFFSET, &(destination->normalized_latitude), LATITUDE_SIZE);
 }
 
 void serialize_seg_meta(struct seg_meta* source, void* destination) {

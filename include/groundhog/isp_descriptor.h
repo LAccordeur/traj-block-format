@@ -6,8 +6,8 @@
 #define TRAJ_BLOCK_FORMAT_ISP_DESCRIPTOR_H
 
 struct lba {
-    unsigned long int lba_start;
-    unsigned lba_num;
+    unsigned long int start_lba;
+    unsigned int sector_count;
 };
 
 struct isp_descriptor {

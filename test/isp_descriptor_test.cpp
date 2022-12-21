@@ -22,12 +22,12 @@ TEST(isp_descriptor, test) {
     descriptor.lba_count = 3;
     descriptor.estimated_result_page_num = 12;
     struct lba lbas[3];
-    lbas[0].lba_start = 1;
-    lbas[0].lba_num = 1;
-    lbas[1].lba_start = 5;
-    lbas[1].lba_num = 3;
-    lbas[2].lba_start = 9;
-    lbas[2].lba_num = 2;
+    lbas[0].start_lba = 1;
+    lbas[0].sector_count = 1;
+    lbas[1].start_lba = 5;
+    lbas[1].sector_count = 3;
+    lbas[2].start_lba = 9;
+    lbas[2].sector_count = 2;
     descriptor.lba_array = lbas;
 
     int descriptor_space = calculate_isp_descriptor_space(&descriptor);
