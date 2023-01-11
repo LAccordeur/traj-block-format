@@ -1,0 +1,95 @@
+//
+// Created by yangguo on 22-12-30.
+//
+
+#ifndef SPDK_TEST_STATIC_SPDK_FS_LAYER_H
+#define SPDK_TEST_STATIC_SPDK_FS_LAYER_H
+
+#include <stddef.h>
+#include "spdk/queue.h"
+#include "spdk/env.h"
+#include "spdk/nvme.h"
+#include "spdk/vmd.h"
+#include "groundhog/isp_descriptor.h"
+
+#define SECTOR_SIZE 0x1000
+#define SUPER_BLOCK_OFFSET 0
+
+/**
+ * a simple file system
+ * - only support append-only write
+ * - write and read should be sector-based
+ */
+#define DATA_FILENAME "trajectory.data"
+#define DATA_FILE_OFFSET 1
+#define DATA_FILE_LENGTH 1048576
+#define INDEX_FILENAME "trajectory.index"
+#define INDEX_FILE_OFFSET 1048577
+#define INDEX_FILE_LENGTH 262144
+#define SEG_META_FILENAME "trajectory_seg.meta"
+#define SEG_META_FILE_OFFSET 1310721
+#define SEG_META_FILE_LENGTH 262144
+
+
+struct spdk_static_fs_desc {
+    struct spdk_nvme_driver_desc *driver_desc;
+    struct spdk_static_file_desc *file_desc_vec;
+    int file_desc_vec_num;
+};
+
+struct spdk_static_file_desc {
+    char filename[128];
+    unsigned long int start_lba;    // the start lba of this file
+    unsigned int sector_count;  // the length of this file
+    unsigned int current_write_offset;    // the current unused offset of this file, starting from 0 to sector_count; only support append-only way
+    unsigned int current_read_offset;
+    struct spdk_static_fs_desc *fs_desc;
+};
+
+struct spdk_nvme_driver_desc {
+    struct ns_entry *ns_entry;
+};
+
+struct ctrlr_entry {
+    struct spdk_nvme_ctrlr		*ctrlr;
+    TAILQ_ENTRY(ctrlr_entry)	link;
+    char				name[1024];
+};
+
+struct ns_entry {
+    struct spdk_nvme_ctrlr	*ctrlr;
+    struct spdk_nvme_ns	*ns;
+    TAILQ_ENTRY(ns_entry)	link;
+    struct spdk_nvme_qpair	*qpair;
+};
+
+void init_and_mk_fs_for_traj(bool is_flushed);
+
+/**
+ * initialize spdk nvme driver and store driver structure in @driver_desc
+ * @param driver_desc
+ */
+int init_spdk_nvme_driver(struct spdk_nvme_driver_desc *driver_desc);
+
+int cleanup_spdk_nvme_driver(struct spdk_nvme_driver_desc *driver_desc);
+
+void spdk_mk_static_fs(struct spdk_static_fs_desc *fs_desc, struct spdk_static_file_desc *file_desc, int file_desc_num, struct spdk_nvme_driver_desc *driver_desc, bool is_flushed);
+
+void spdk_flush_static_fs_meta(struct spdk_static_fs_desc *fs_desc);
+
+void print_spdk_static_fs_meta(struct spdk_static_fs_desc *fs_desc);
+
+struct spdk_static_file_desc *spdk_static_fs_fopen(const char *filename, struct spdk_static_fs_desc *fs_desc);
+
+size_t spdk_static_fs_fwrite(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc);
+
+size_t spdk_static_fs_fread(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc);
+
+size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc, struct isp_descriptor *isp_desc);
+
+size_t spdk_static_fs_fseek(struct spdk_static_file_desc *file_desc, long int offset);
+
+
+#endif //SPDK_TEST_STATIC_SPDK_FS_LAYER_H
+
+

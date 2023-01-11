@@ -6,11 +6,20 @@
 #include "groundhog/persistence_manager.h"
 #include "groundhog/common_fs_layer.h"
 
+extern struct spdk_static_fs_desc spdk_static_fs_layer_for_traj;
+
 struct my_file *my_fopen(const char *filename, const char *file_operation_mode, int fs_mode) {
     struct my_file *my_fp = malloc(sizeof(struct my_file));
     if (fs_mode == COMMON_FS_MODE) {
         FILE *fp = common_fs_open(filename, file_operation_mode);
         my_fp->common_file = fp;
+        my_fp->filename = filename;
+        my_fp->file_operation_mode = file_operation_mode;
+        my_fp->fs_mode = fs_mode;
+    }
+    if (fs_mode == SPDK_FS_MODE || fs_mode == SPDK_FS_ISP_MODE) {
+        struct spdk_static_file_desc *spdk_fp = spdk_static_fs_fopen(filename, &spdk_static_fs_layer_for_traj);
+        my_fp->spdk_file = spdk_fp;
         my_fp->filename = filename;
         my_fp->file_operation_mode = file_operation_mode;
         my_fp->fs_mode = fs_mode;
@@ -22,16 +31,28 @@ size_t my_fwrite(const void *ptr, size_t size, size_t nmemb, struct my_file *str
     if (fs_mode == COMMON_FS_MODE) {
         return common_fs_write(ptr, size, nmemb, stream->common_file);
     }
+    if (fs_mode == SPDK_FS_MODE || fs_mode == SPDK_FS_ISP_MODE) {
+        return spdk_static_fs_fwrite(ptr, size*nmemb, stream->spdk_file);
+    }
 }
 
 size_t my_fread(void *ptr, size_t size, size_t nmemb, struct my_file *stream, int fs_mode) {
     if (fs_mode == COMMON_FS_MODE) {
         return common_fs_read(ptr, size, nmemb, stream->common_file);
     }
+    if (fs_mode == SPDK_FS_MODE) {
+        return spdk_static_fs_fread(ptr, size*nmemb, stream->spdk_file);
+    }
+    if (fs_mode == SPDK_FS_ISP_MODE) {
+        return spdk_static_fs_fread_isp(ptr, size*nmemb, stream->spdk_file, stream->isp_desc);
+    }
 }
 
 size_t my_fseek(struct my_file *stream, long int offset, int fs_mode) {
     if (fs_mode == COMMON_FS_MODE) {
         return common_fs_seek(stream->common_file, offset, SEEK_SET);
+    }
+    if (fs_mode == SPDK_FS_MODE || fs_mode == SPDK_FS_ISP_MODE) {
+        return spdk_static_fs_fseek(stream->spdk_file, offset);
     }
 }

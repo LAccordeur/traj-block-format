@@ -8,6 +8,20 @@ include_directories(${gtest_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/../lib
         )
 
+set(BEGIN_WHOLE_ARCHIVE -Wl,--whole-archive)
+set(END_WHOLE_ARCHIVE -Wl,--no-whole-archive)
+set(STATIC -Wl,-Bstatic)
+set(DYNAMIC -Wl,-Bdynamic)
+set(SPDKNVME_LIBRARIES
+        -lspdk_nvme -lspdk_sock -lspdk_sock_posix -lspdk_trace -lspdk_rpc -lspdk_jsonrpc -lspdk_json -lspdk_util -lspdk_log -lspdk_vmd -lspdk_env_dpdk)
+set(SPDKENVDPDK_LIBRARIES
+        -lrte_eal -lrte_mempool -lrte_ring -lrte_mbuf -lrte_bus_pci -lrte_pci -lrte_mempool_ring -lrte_telemetry -lrte_kvargs -lrte_power -lrte_ethdev -lrte_net -lrte_vhost -lrte_dmadev -lrte_cryptodev -lrte_hash -lrte_rcu)
+set(SPKDSYSLIBS_LIBRARIES
+        -lisal -pthread -lrt -luuid -lssl -lcrypto -lm -laio -lnuma -ldl)
+set(SPDK_LIBS
+        ${BEGIN_WHOLE_ARCHIVE} ${STATIC} ${SPDKNVME_LIBRARIES} ${SPDKENVDPDK_LIBRARIES} ${END_WHOLE_ARCHIVE} ${DYNAMIC} ${SPKDSYSLIBS_LIBRARIES})
+
+
 add_executable(mytest mytest.cpp)
 target_link_libraries(mytest gtest gtest_main)
 target_link_libraries(mytest ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
@@ -62,3 +76,10 @@ add_executable(isp_output_buffer isp_output_buffer_test.cpp
         ${CMAKE_SOURCE_DIR}/src/groundhog/isp_output_buffer.c
         ${CMAKE_SOURCE_DIR}/include/groundhog/isp_output_buffer.h)
 target_link_libraries(isp_output_buffer gtest gtest_main ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
+
+add_executable(static_spdk_fs_layer_test static_spdk_fs_layer_test.cpp ${CMAKE_SOURCE_DIR}/src/groundhog/static_spdk_fs_layer.c )
+target_link_libraries(static_spdk_fs_layer_test gtest gtest_main ${SPDK_LIBS} ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
+add_executable(persistence_manager_test persistence_manager_test.cpp )
+target_link_libraries(persistence_manager_test gtest gtest_main ${SPDK_LIBS} ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)

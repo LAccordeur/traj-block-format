@@ -10,9 +10,28 @@ include_directories("${PROJECT_BINARY_DIR}"
         "${PROJECT_SOURCE_DIR}/lib/r5poll"
         )
 
+link_directories("/home/yangguo/Codes/spdk/isa-l/.libs")
+link_directories("${PROJECT_SOURCE_DIR}/lib/spdk")
+link_directories("${PROJECT_SOURCE_DIR}/lib/dpdk")
+link_directories("/home/yangguo/CLionProjects/spdk-test/cmake-build-debug")
+
 # testing section
 enable_testing()
 add_subdirectory(test)
+
+set(BEGIN_WHOLE_ARCHIVE -Wl,--whole-archive)
+set(END_WHOLE_ARCHIVE -Wl,--no-whole-archive)
+set(STATIC -Wl,-Bstatic)
+set(DYNAMIC -Wl,-Bdynamic)
+set(SPDKNVME_LIBRARIES
+        -lspdk_nvme -lspdk_sock -lspdk_sock_posix -lspdk_trace -lspdk_rpc -lspdk_jsonrpc -lspdk_json -lspdk_util -lspdk_log -lspdk_vmd -lspdk_env_dpdk)
+set(SPDKENVDPDK_LIBRARIES
+        -lrte_eal -lrte_mempool -lrte_ring -lrte_mbuf -lrte_bus_pci -lrte_pci -lrte_mempool_ring -lrte_telemetry -lrte_kvargs -lrte_power -lrte_ethdev -lrte_net -lrte_vhost -lrte_dmadev -lrte_cryptodev -lrte_hash -lrte_rcu)
+set(SPKDSYSLIBS_LIBRARIES
+        -lisal -pthread -lrt -luuid -lssl -lcrypto -lm -laio -lnuma -ldl)
+set(SPDK_LIBS
+        ${BEGIN_WHOLE_ARCHIVE} ${STATIC} ${SPDKNVME_LIBRARIES} ${SPDKENVDPDK_LIBRARIES} ${END_WHOLE_ARCHIVE} ${DYNAMIC} ${SPKDSYSLIBS_LIBRARIES})
+
 
 add_library(traj_block_format
         src/groundhog/library.c
@@ -31,6 +50,7 @@ add_library(traj_block_format
         src/groundhog/persistence_manager.c
         src/groundhog/common_fs_layer.c
         src/groundhog/isp_output_format.c
+        src/groundhog/static_spdk_fs_layer.c
         include/groundhog/normalization_util.h
         include/groundhog/traj_block_format.h
         include/groundhog/porto_dataset_reader.h
@@ -46,6 +66,7 @@ add_library(traj_block_format
         include/groundhog/persistence_manager.h
         include/groundhog/common_fs_layer.h
         include/groundhog/isp_output_format.h
+        include/groundhog/static_spdk_fs_layer.h
         include/groundhog/common_util.h
         include/groundhog/log.h
         )
@@ -55,4 +76,5 @@ add_executable(mymain src/groundhog/mymain.c)
 target_link_libraries(mymain ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 
 add_executable(simple_verification src/groundhog/simple_verification.c)
-target_link_libraries(simple_verification ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+target_link_libraries(simple_verification ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
