@@ -434,6 +434,7 @@ size_t spdk_static_fs_fread(const void *data_ptr, size_t size, struct spdk_stati
 
     if (file_desc->current_read_offset >= file_desc->current_write_offset) {
         // we read all data already
+        printf("all data are read.\n");
         return 0;
     }
 
@@ -490,10 +491,10 @@ size_t spdk_static_fs_fread(const void *data_ptr, size_t size, struct spdk_stati
 }
 
 size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc, struct isp_descriptor *isp_desc) {
-    if (file_desc->current_read_offset >= file_desc->current_write_offset) {
+    /*if (file_desc->current_read_offset >= file_desc->current_write_offset) {
         // we read all data already
         return 0;
-    }
+    }*/
 
     struct ns_entry *ns_entry = file_desc->fs_desc->driver_desc->ns_entry;
     struct callback_sequence sequence;
@@ -523,9 +524,6 @@ size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_s
         sector_count = size / SECTOR_SIZE + 1;
     }
 
-    if (file_desc->current_read_offset + sector_count > file_desc->sector_count) {
-        sector_count = file_desc->sector_count - file_desc->current_read_offset;
-    }
 
     int desc_size = calculate_isp_descriptor_space(isp_desc);
     if (desc_size >= 4096) {
@@ -533,6 +531,7 @@ size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_s
     }
     serialize_isp_descriptor(isp_desc, sequence.buf);
 
+    // lba_start and sector_count are not actually used in SSD
     rc = spdk_nvme_ns_cmd_exe_multi(ns_entry->ns, ns_entry->qpair, sequence.buf,
                                lba_start,
                                sector_count,
@@ -547,8 +546,6 @@ size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_s
         spdk_nvme_qpair_process_completions(ns_entry->qpair, 1);
     }
 
-    // update offset
-    file_desc->current_read_offset = file_desc->current_read_offset + sector_count;
 
     return sector_count * SECTOR_SIZE;
 }

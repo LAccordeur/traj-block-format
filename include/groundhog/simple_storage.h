@@ -36,6 +36,8 @@ int calculate_total_num_of_points_in_storage(struct traj_storage *storage);
 
 void fetch_traj_data_via_logical_pointer(struct traj_storage *storage, int logical_pointer, void* destination);
 
+void do_isp_for_trajectory_data(struct traj_storage *storage, void* result_buffer, size_t estimated_result_size, struct isp_descriptor *isp_desc);
+
 void flush_traj_storage(struct traj_storage *storage);
 
 #endif //TRAJ_BLOCK_FORMAT_SIMPLE_STORAGE_H

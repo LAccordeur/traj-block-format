@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include "groundhog/log.h"
+#include "groundhog/isp_output_format.h"
 
 static int check_oid_exist(const int *oids, int array_size, int checked_oid) {
     for (int i = 0; i < array_size; i++) {
@@ -170,6 +171,9 @@ int id_temporal_query(struct simple_query_engine *engine, struct id_temporal_pre
 
 }
 
+
+
+
 int spatio_temporal_query(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate) {
     int result_count = 0;
     // check the index
@@ -224,7 +228,37 @@ int spatio_temporal_query(struct simple_query_engine *engine, struct spatio_temp
     return result_count;
 }
 
+
+static void assemble_isp_desc_for_id_temporal(struct isp_descriptor *isp_desc, struct id_temporal_predicate *predicate, int estimated_result_block_num, struct lba *lba_vec, int lba_vec_size) {
+    isp_desc->isp_type = 0;
+    isp_desc->estimated_result_page_num = estimated_result_block_num;
+    isp_desc->oid = predicate->oid;
+    isp_desc->lba_array = lba_vec;
+    isp_desc->lba_count = lba_vec_size;
+    isp_desc->time_min = predicate->time_min;
+    isp_desc->time_max = predicate->time_max;
+    isp_desc->lon_min = 0;
+    isp_desc->lon_max = 0;
+    isp_desc->lat_min = 0;
+    isp_desc->lat_max = 0;
+}
+
+static void assemble_isp_desc_for_spatial_temporal(struct isp_descriptor *isp_desc, struct spatio_temporal_range_predicate *predicate, int estimated_result_block_num, struct lba *lba_vec, int lba_vec_size) {
+    isp_desc->isp_type = 1;
+    isp_desc->estimated_result_page_num = estimated_result_block_num;
+    isp_desc->oid = 0;
+    isp_desc->lba_array = lba_vec;
+    isp_desc->lba_count = lba_vec_size;
+    isp_desc->time_min = predicate->time_min;
+    isp_desc->time_max = predicate->time_max;
+    isp_desc->lon_min = predicate->lon_min;
+    isp_desc->lon_max = predicate->lon_max;
+    isp_desc->lat_min = predicate->lat_min;
+    isp_desc->lat_max = predicate->lat_max;
+}
+
 int estimate_id_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct id_temporal_predicate *predicate) {
+    // TODO fix bug: over-estimated size since there is no oid info
     int result_size = 0;
     for (int i = 0; i <= storage->current_index; i++) {
         struct seg_meta_section_entry *entry = storage->base[i];
@@ -261,4 +295,147 @@ int estimate_spatio_temporal_result_size(struct seg_meta_section_entry_storage *
     return result_size;
 }
 
+int assemble_lba_vec(struct lba *lba_vec, int base_lba, int *block_logical_adr_vec, int block_logical_adr_vec_size) {
+    for (int i = 0; i < block_logical_adr_vec_size; i++) {
+        lba_vec[i].start_lba = base_lba + block_logical_adr_vec[i];
+        lba_vec[i].sector_count = 1;
+    }
+    return block_logical_adr_vec_size;
+}
+
+int id_temporal_query_isp(struct simple_query_engine *engine, struct id_temporal_predicate *predicate) {
+    int result_count = 0;
+    // check the index
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    int block_logical_adr_vec[256];
+    int block_logical_adr_count = 0;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        if (check_oid_exist(entry->oid_array, entry->oid_array_size, predicate->oid) > 0
+            && predicate->time_min <= entry->time_max
+            && predicate->time_max >= entry->time_min) {
+
+            if (block_logical_adr_count > 255) {
+                printf("Too many blocks in one isp. Not supported now\n");
+                return -1;
+            }
+
+            block_logical_adr_vec[block_logical_adr_count] = entry->block_logical_adr;
+            block_logical_adr_count++;
+
+        }
+    }
+
+    //int estimated_result_size = estimate_id_temporal_result_size(meta_storage, predicate);
+    int estimated_result_size = block_logical_adr_count * 0x1000;
+    if (estimated_result_size == 0) {
+        return 0;
+    }
+    if (estimated_result_size % 0x1000 != 0) {
+        estimated_result_size = ((estimated_result_size / 0x1000) + 1) * 0x1000;
+    }
+    int estimated_result_block_num = estimated_result_size / 0x1000;
+    void* result_buffer = malloc(estimated_result_size);
+
+    struct isp_descriptor isp_desc;
+    struct lba lba_vec[256];
+    int lba_vec_size = assemble_lba_vec(lba_vec, DATA_FILE_OFFSET, block_logical_adr_vec, block_logical_adr_count);
+    assemble_isp_desc_for_id_temporal(&isp_desc, predicate, estimated_result_block_num, lba_vec, lba_vec_size);
+    do_isp_for_trajectory_data(data_storage, result_buffer, estimated_result_size, &isp_desc);
+
+    for (int block_count = 0; block_count < estimated_result_block_num; block_count++, result_buffer+=4096) {
+        int points_num = parse_points_num_from_output_buffer_page(result_buffer);
+        //printf("block points num: %d\n", points_num);
+        if (points_num > 0) {
+            struct traj_point **points = allocate_points_memory(points_num);
+            deserialize_output_buffer_page(result_buffer, points, points_num);
+            for (int k = 0; k < points_num; k++) {
+                struct traj_point *point = points[k];
+                //printf("oid: %d, time: %d, lon: %d, lat: %d\n", point->oid, point->timestamp_sec, point->normalized_longitude, point->normalized_latitude);
+                if (point->oid == predicate->oid
+                    && predicate->time_min <= point->timestamp_sec
+                    && predicate->time_max >= point->timestamp_sec) {
+                    result_count++;
+                }
+            }
+            free_points_memory(points, points_num);
+        }
+    }
+
+    return result_count;
+}
+
+int spatio_temporal_query_isp(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate) {
+    int result_count = 0;
+    // check the index
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    int block_logical_adr_vec[256];
+    int block_logical_adr_count = 0;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        if (predicate->lon_min <= entry->lon_max
+            && predicate->lon_max >= entry->lon_min
+            && predicate->lat_min <= entry->lat_max
+            && predicate->lat_max >= entry->lat_min
+            && predicate->time_min <= entry->time_max
+            && predicate->time_max >= entry->time_min) {
+
+            if (block_logical_adr_count > 255) {
+                printf("Too many blocks in one isp. Not supported now\n");
+                return -1;
+            }
+
+            block_logical_adr_vec[block_logical_adr_count] = entry->block_logical_adr;
+            block_logical_adr_count++;
+
+        }
+    }
+
+    //int estimated_result_size = estimate_id_temporal_result_size(meta_storage, predicate);
+    int estimated_result_size = block_logical_adr_count * 0x1000;
+    if (estimated_result_size == 0) {
+        return 0;
+    }
+    if (estimated_result_size % 0x1000 != 0) {
+        estimated_result_size = ((estimated_result_size / 0x1000) + 1) * 0x1000;
+    }
+    int estimated_result_block_num = estimated_result_size / 0x1000;
+    void* result_buffer = malloc(estimated_result_size);
+
+    struct isp_descriptor isp_desc;
+    struct lba lba_vec[256];
+    int lba_vec_size = assemble_lba_vec(lba_vec, DATA_FILE_OFFSET, block_logical_adr_vec, block_logical_adr_count);
+    assemble_isp_desc_for_spatial_temporal(&isp_desc, predicate, estimated_result_block_num, lba_vec, lba_vec_size);
+    do_isp_for_trajectory_data(data_storage, result_buffer, estimated_result_size, &isp_desc);
+
+    for (int block_count = 0; block_count < estimated_result_block_num; block_count++, result_buffer+=4096) {
+        int points_num = parse_points_num_from_output_buffer_page(result_buffer);
+        //printf("block points num: %d\n", points_num);
+        if (points_num > 0) {
+            struct traj_point **points = allocate_points_memory(points_num);
+            deserialize_output_buffer_page(result_buffer, points, points_num);
+            for (int k = 0; k < points_num; k++) {
+                struct traj_point *point = points[k];
+                //printf("oid: %d, time: %d, lon: %d, lat: %d\n", point->oid, point->timestamp_sec, point->normalized_longitude, point->normalized_latitude);
+                if (predicate->lon_min <= point->normalized_longitude
+                    && predicate->lon_max >= point->normalized_longitude
+                    && predicate->lat_min <= point->normalized_latitude
+                    && predicate->lat_max >= point->normalized_latitude
+                    && predicate->time_min <= point->timestamp_sec
+                    && predicate->time_max >= point->timestamp_sec) {
+                    result_count++;
+                }
+            }
+            free_points_memory(points, points_num);
+        }
+    }
+
+    return result_count;
+}
 

@@ -75,6 +75,11 @@ void fetch_traj_data_via_logical_pointer(struct traj_storage *storage, int logic
     //debug_print("[fetch_traj_data_via_logical_pointer] fetch block [%d] from file [%s] to memory [%p]\n", logical_pointer, my_fp->filename, destination);
 }
 
+void do_isp_for_trajectory_data(struct traj_storage *storage, void* result_buffer, size_t estimated_result_size, struct isp_descriptor *isp_desc) {
+    struct my_file *my_fp = storage->my_fp;
+    my_fread_isp(result_buffer, estimated_result_size, my_fp, isp_desc);
+}
+
 void free_traj_storage(struct traj_storage *storage) {
     for (int i = 0; i <= storage->current_index; i++) {
         void* block_ptr = (storage->traj_blocks_base)[i];

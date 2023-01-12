@@ -17,7 +17,7 @@ struct my_file *my_fopen(const char *filename, const char *file_operation_mode, 
         my_fp->file_operation_mode = file_operation_mode;
         my_fp->fs_mode = fs_mode;
     }
-    if (fs_mode == SPDK_FS_MODE || fs_mode == SPDK_FS_ISP_MODE) {
+    if (fs_mode == SPDK_FS_MODE) {
         struct spdk_static_file_desc *spdk_fp = spdk_static_fs_fopen(filename, &spdk_static_fs_layer_for_traj);
         my_fp->spdk_file = spdk_fp;
         my_fp->filename = filename;
@@ -31,7 +31,7 @@ size_t my_fwrite(const void *ptr, size_t size, size_t nmemb, struct my_file *str
     if (fs_mode == COMMON_FS_MODE) {
         return common_fs_write(ptr, size, nmemb, stream->common_file);
     }
-    if (fs_mode == SPDK_FS_MODE || fs_mode == SPDK_FS_ISP_MODE) {
+    if (fs_mode == SPDK_FS_MODE) {
         return spdk_static_fs_fwrite(ptr, size*nmemb, stream->spdk_file);
     }
 }
@@ -43,16 +43,21 @@ size_t my_fread(void *ptr, size_t size, size_t nmemb, struct my_file *stream, in
     if (fs_mode == SPDK_FS_MODE) {
         return spdk_static_fs_fread(ptr, size*nmemb, stream->spdk_file);
     }
-    if (fs_mode == SPDK_FS_ISP_MODE) {
+    /*if (fs_mode == SPDK_FS_ISP_MODE) {
         return spdk_static_fs_fread_isp(ptr, size*nmemb, stream->spdk_file, stream->isp_desc);
-    }
+    }*/
 }
+
+size_t my_fread_isp(void *ptr, size_t estimated_result_size, struct my_file *stream, struct isp_descriptor *isp_desc) {
+    spdk_static_fs_fread_isp(ptr, estimated_result_size, stream->spdk_file, isp_desc);
+}
+
 
 size_t my_fseek(struct my_file *stream, long int offset, int fs_mode) {
     if (fs_mode == COMMON_FS_MODE) {
         return common_fs_seek(stream->common_file, offset, SEEK_SET);
     }
-    if (fs_mode == SPDK_FS_MODE || fs_mode == SPDK_FS_ISP_MODE) {
+    if (fs_mode == SPDK_FS_MODE) {
         return spdk_static_fs_fseek(stream->spdk_file, offset);
     }
 }

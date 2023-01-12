@@ -48,6 +48,10 @@ int id_temporal_query(struct simple_query_engine *engine, struct id_temporal_pre
 
 int spatio_temporal_query(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate);
 
+int id_temporal_query_isp(struct simple_query_engine *engine, struct id_temporal_predicate *predicate);
+
+int spatio_temporal_query_isp(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate);
+
 int estimate_id_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct id_temporal_predicate *predicate);
 
 int estimate_spatio_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct spatio_temporal_range_predicate *predicate);
