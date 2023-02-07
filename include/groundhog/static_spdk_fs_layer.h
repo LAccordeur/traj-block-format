@@ -19,16 +19,20 @@
  * a simple file system
  * - only support append-only write
  * - write and read should be sector-based
+ * - the maximum size of data file is 16 GB and the maximum size of index file and meta file is 4 GB
+ *
+ *  every time when reading data, you should reset the read offset via fseek()
+ *  write_offset is controlled by the program itself
  */
 #define DATA_FILENAME "trajectory.data"
 #define DATA_FILE_OFFSET 1
-#define DATA_FILE_LENGTH 1048576
+#define DATA_FILE_LENGTH 4194304
 #define INDEX_FILENAME "trajectory.index"
-#define INDEX_FILE_OFFSET 1048577
-#define INDEX_FILE_LENGTH 262144
+#define INDEX_FILE_OFFSET 4194305
+#define INDEX_FILE_LENGTH 1048576
 #define SEG_META_FILENAME "trajectory_seg.meta"
-#define SEG_META_FILE_OFFSET 1310721
-#define SEG_META_FILE_LENGTH 262144
+#define SEG_META_FILE_OFFSET 5242881
+#define SEG_META_FILE_LENGTH 1048576
 
 
 struct spdk_static_fs_desc {
@@ -85,6 +89,14 @@ size_t spdk_static_fs_fwrite(const void *data_ptr, size_t size, struct spdk_stat
 
 size_t spdk_static_fs_fread(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc);
 
+/**
+ *
+ * @param data_ptr
+ * @param size estimated result size
+ * @param file_desc
+ * @param isp_desc there is a limit (i.e., 256 sector) of total sector number in each operation. The program should make sure that it obeys this condition
+ * @return
+ */
 size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc, struct isp_descriptor *isp_desc);
 
 size_t spdk_static_fs_fseek(struct spdk_static_file_desc *file_desc, long int offset);

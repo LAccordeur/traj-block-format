@@ -75,6 +75,34 @@ void fetch_traj_data_via_logical_pointer(struct traj_storage *storage, int logic
     //debug_print("[fetch_traj_data_via_logical_pointer] fetch block [%d] from file [%s] to memory [%p]\n", logical_pointer, my_fp->filename, destination);
 }
 
+void fetch_continuous_traj_data_block(struct traj_storage *storage, int block_logical_pointer_start, int block_num, void* destination) {
+    int fs_mode = storage->my_fp->fs_mode;
+    struct my_file *my_fp = storage->my_fp;
+    if (fs_mode == COMMON_FS_MODE) {
+        my_fseek(my_fp, TRAJ_BLOCK_SIZE * block_logical_pointer_start, fs_mode);
+        my_fread(destination, block_num, TRAJ_BLOCK_SIZE, my_fp, fs_mode);
+    }
+    if (fs_mode == SPDK_FS_MODE) {
+        // check if the sector count exceed the limit in FTL (256)
+        int block_num_limit = 256 * SECTOR_SIZE / TRAJ_BLOCK_SIZE;
+        if (block_num <= block_num_limit) {
+            my_fseek(my_fp, TRAJ_BLOCK_SIZE * block_logical_pointer_start, fs_mode);
+            my_fread(destination, block_num, TRAJ_BLOCK_SIZE, my_fp, fs_mode);
+        } else {
+            int remaining_block_num = block_num;
+            int i = 0;
+            do {
+                my_fseek(my_fp, TRAJ_BLOCK_SIZE * block_logical_pointer_start + i * block_num_limit * TRAJ_BLOCK_SIZE, fs_mode);
+                int read_block_num = remaining_block_num > block_num_limit ? block_num_limit : remaining_block_num;
+                my_fread(destination + i * block_num_limit * TRAJ_BLOCK_SIZE, read_block_num, TRAJ_BLOCK_SIZE, my_fp, fs_mode);
+
+                remaining_block_num -= block_num_limit;
+                i++;
+            } while (remaining_block_num > 0);
+        }
+    }
+}
+
 void do_isp_for_trajectory_data(struct traj_storage *storage, void* result_buffer, size_t estimated_result_size, struct isp_descriptor *isp_desc) {
     struct my_file *my_fp = storage->my_fp;
     my_fread_isp(result_buffer, estimated_result_size, my_fp, isp_desc);

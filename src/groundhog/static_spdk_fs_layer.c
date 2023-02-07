@@ -372,6 +372,7 @@ struct spdk_static_file_desc *spdk_static_fs_fopen(const char *filename, struct 
     for (int i = 0; i < fs_desc->file_desc_vec_num; i++) {
         struct spdk_static_file_desc *file_desc = &(fs_desc->file_desc_vec[i]);
         if (strcmp(file_desc->filename, filename) == 0) {
+            file_desc->current_read_offset = 0;
             return file_desc;
         }
     }
@@ -491,10 +492,16 @@ size_t spdk_static_fs_fread(const void *data_ptr, size_t size, struct spdk_stati
 }
 
 size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc, struct isp_descriptor *isp_desc) {
-    /*if (file_desc->current_read_offset >= file_desc->current_write_offset) {
-        // we read all data already
-        return 0;
-    }*/
+
+    // check the number of sector (should be less than or equal to 256)
+    int total_sector_count = 0;
+    for (int i = 0; i < isp_desc->lba_count; i++) {
+        total_sector_count += isp_desc->lba_array[i].sector_count;
+    }
+    if (total_sector_count > 256) {
+        fprintf(stderr, "[spdk_fs_isp] too much sector read in one operation\n");
+        exit(-1);
+    }
 
     struct ns_entry *ns_entry = file_desc->fs_desc->driver_desc->ns_entry;
     struct callback_sequence sequence;

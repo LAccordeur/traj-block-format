@@ -108,3 +108,55 @@ TEST(storage, flush) {
     free_traj_storage(&data_storage);
 }
 
+
+TEST(storage, fetch_continuous) {
+    init_and_mk_fs_for_traj(false);
+    //char filename[] = "/home/yangguo/Codes/groundhog/traj-block-format/datafile/traj.data"; // for common file system
+    char filename[] = DATA_FILENAME; // for spdk file system
+    struct traj_storage data_storage;
+    init_traj_storage_with_persistence(&data_storage, filename, "w", SPDK_FS_MODE);
+
+    FILE *fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
+
+    // trajectory block info
+    int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM);
+    int block_num = 258;
+
+    for (int i = 0; i < block_num; i++) {
+        struct traj_point **points = allocate_points_memory(points_num);
+        read_points_from_csv(fp,points, i*points_num, points_num);
+        // convert and put this data to traj storage
+        void *data = malloc(TRAJ_BLOCK_SIZE);
+        do_self_contained_traj_block(points, points_num, data, TRAJ_BLOCK_SIZE);
+        struct address_pair data_addresses = append_traj_block_to_storage(&data_storage, data);
+
+
+        free_points_memory(points, points_num);
+    }
+
+    // print the points of last seg in the last block
+    void* data_block = data_storage.traj_blocks_base[block_num-1];
+    print_specific_seg_points(data_block);
+
+
+    // flush and load
+
+    flush_traj_storage(&data_storage);
+
+    char rebuild_block[TRAJ_BLOCK_SIZE*2];
+    struct my_file *rebuild_fp = my_fopen(filename, "r", SPDK_FS_MODE);
+    my_fseek(rebuild_fp, TRAJ_BLOCK_SIZE * (block_num - 2), SPDK_FS_MODE);
+    my_fread(rebuild_block, 2, TRAJ_BLOCK_SIZE, rebuild_fp, SPDK_FS_MODE);
+    printf("\n\nrebuild:\n");
+    print_specific_seg_points(&rebuild_block[4096]);
+
+    char rebuild_block_1[TRAJ_BLOCK_SIZE*258];
+    struct traj_storage disk_storage;
+    init_traj_storage_with_persistence(&disk_storage, filename, "r", SPDK_FS_MODE);
+    fetch_continuous_traj_data_block(&disk_storage, 0, 258, rebuild_block_1);
+    printf("\n\nrebuild 1:\n");
+    print_specific_seg_points(&rebuild_block_1[4096 * 257]);
+
+
+    free_traj_storage(&data_storage);
+}

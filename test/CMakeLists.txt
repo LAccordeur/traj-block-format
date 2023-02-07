@@ -45,17 +45,17 @@ target_link_libraries(hashset_int_test ${CMAKE_SOURCE_DIR}/cmake-build-debug/lib
 
 add_executable(simple_storage_test simple_storage_test.cpp)
 target_link_libraries(simple_storage_test gtest gtest_main)
-target_link_libraries(simple_storage_test ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+target_link_libraries(simple_storage_test ${SPDK_LIBS} ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 
 
 add_executable(simple_index_test simple_index_test.cpp)
 target_link_libraries(simple_index_test gtest gtest_main)
-target_link_libraries(simple_index_test ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+target_link_libraries(simple_index_test ${SPDK_LIBS} ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 
 
 add_executable(simple_query_engine_test simple_query_engine_test.cpp)
 target_link_libraries(simple_query_engine_test gtest gtest_main)
-target_link_libraries(simple_query_engine_test ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+target_link_libraries(simple_query_engine_test ${SPDK_LIBS} ${CMAKE_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 
 add_executable(query_workload_reader_test query_workload_reader_test.cpp)
 target_link_libraries(query_workload_reader_test gtest gtest_main)

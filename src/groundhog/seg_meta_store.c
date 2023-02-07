@@ -208,6 +208,7 @@ void flush_serialized_seg_meta_storage(struct serialized_seg_meta_section_entry_
 
 void rebuild_seg_meta_storage(char* filename, int fs_mode, struct seg_meta_section_entry_storage *storage) {
     struct my_file *fp = my_fopen(filename, "r", fs_mode);
+    my_fseek(fp, 0, fs_mode);
 
     struct serialized_seg_meta_section_entry_storage serialized_storage;
     init_serialized_seg_meta_section_entry_storage(&serialized_storage);

@@ -32,6 +32,14 @@ struct spatio_temporal_range_predicate {
     int time_max;
 };
 
+/**
+ * represent a continuous block region
+ */
+struct continuous_block_meta {
+    int block_start;
+    int block_count;
+};
+
 void init_query_engine(struct simple_query_engine *engine);
 
 void init_query_engine_with_persistence(struct simple_query_engine *engine, struct my_file *data_file, struct my_file *index_file, struct my_file *meta_file);
@@ -56,5 +64,26 @@ int estimate_id_temporal_result_size(struct seg_meta_section_entry_storage *stor
 
 int estimate_spatio_temporal_result_size(struct seg_meta_section_entry_storage *storage, struct spatio_temporal_range_predicate *predicate);
 
+
+int calculate_aggregate_block_vec_size(int *block_addr_vec, int block_addr_vec_size);
+/**
+ *
+ * Given a vector of block address @param block_addr_vec , aggregate them to continuous ones
+ * Example:
+ * 1, 2, 5, 6, 8 -> [1, 2], [5, 6], [8]
+ * @param block_addr_vec
+ * @param block_addr_vec_size
+ * @param block_meta_vec
+ * @param block_meta_vec_size  use function calculate_aggregate_block_vec_size() to calculate the value of @param block_meta_vec_size before call this function
+ */
+void aggregate_blocks(int *block_addr_vec, int block_addr_vec_size, struct continuous_block_meta *block_meta_vec, int block_meta_vec_size);
+
+void print_aggregated_blocks_meta(struct continuous_block_meta *block_meta_vec, int block_meta_vec_size);
+
+int spatio_temporal_query_without_pushdown(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate);
+
+int spatio_temporal_query_with_full_pushdown(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate);
+
+int spatio_temporal_query_with_adaptive_pushdown(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate);
 
 #endif //TRAJ_BLOCK_FORMAT_SIMPLE_QUERY_ENGINE_H

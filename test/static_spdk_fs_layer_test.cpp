@@ -10,6 +10,17 @@ extern "C" {
 #include "groundhog/porto_dataset_reader.h"
 }
 
+TEST(common_fs, test) {
+    FILE* fp = fopen("test.txt", "w");
+    fwrite("helloworld", 1, 10, fp);
+    //fclose(fp);
+    char buffer[10];
+    //fseek(fp, 0, SEEK_SET);
+    FILE* fp1 = fopen("test.txt", "r");
+    fread(buffer, 1, 1, fp1);
+    printf("%s\n", buffer);
+}
+
 TEST(spdk_fs, test) {
     struct spdk_nvme_driver_desc driver_desc;
     init_spdk_nvme_driver(&driver_desc);

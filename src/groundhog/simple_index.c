@@ -298,6 +298,7 @@ void flush_serialized_index_storage(struct serialized_index_storage *storage, ch
 
 void rebuild_index_storage(char* filename, int fs_mode, struct index_entry_storage *storage) {
     struct my_file *fp = my_fopen(filename, "r", fs_mode);
+    my_fseek(fp, 0, fs_mode);
 
     struct serialized_index_storage serialized_storage;
     init_serialized_index_storage(&serialized_storage);

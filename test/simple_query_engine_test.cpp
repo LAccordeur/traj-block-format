@@ -147,3 +147,11 @@ TEST(queryengine, rebuild) {
 
 }
 
+TEST(queryengine, aggregate) {
+    int block_addrs[] = {1, 3, 4, 8, 9};
+    int vec_size = calculate_aggregate_block_vec_size(block_addrs, 5);
+    struct continuous_block_meta meta[vec_size];
+    aggregate_blocks(block_addrs, 5, meta, vec_size);
+    print_aggregated_blocks_meta(meta, vec_size);
+}
+

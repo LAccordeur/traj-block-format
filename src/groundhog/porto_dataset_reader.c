@@ -50,16 +50,18 @@ static void parse_porto_row(char* line, struct traj_point *destination_row) {
 
     // longitude
     token = strtok(NULL, ",");
-    double longitude = atof(token);
+    //double longitude = atof(token);
     if (token) {
+        double longitude = atof(token);
         int normalized_value = normalize_longitude(longitude);
         destination_row->normalized_longitude = normalized_value;
     }
 
     // latitude
     token = strtok(NULL, "\n");
-    double latitude = atof(token);
+    //double latitude = atof(token);
     if (token) {
+        double latitude = atof(token);
         int normalized_value = normalize_latitude(latitude);
         destination_row->normalized_latitude = normalized_value;
     }
