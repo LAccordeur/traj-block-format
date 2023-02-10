@@ -78,3 +78,14 @@ target_link_libraries(mymain ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_blo
 add_executable(simple_verification src/groundhog/simple_verification.c)
 target_link_libraries(simple_verification ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 
+add_executable(exp_native_host_and_device src/groundhog/exp/exp_native_host_and_device.c)
+target_link_libraries(exp_native_host_and_device ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
+add_executable(exp_spdk_exe_host src/groundhog/exp/exp_spdk_exe_host.c)
+target_link_libraries(exp_spdk_exe_host ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
+add_executable(pre_spdk_write src/groundhog/exp/pre_spdk_write.c)
+target_link_libraries(pre_spdk_write ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
+add_executable(exp_spdk_exe_isp src/groundhog/exp/exp_spdk_exe_isp.c)
+target_link_libraries(exp_spdk_exe_isp ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)

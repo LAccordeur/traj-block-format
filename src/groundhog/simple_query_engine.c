@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include "groundhog/log.h"
 #include "groundhog/isp_output_format.h"
+#include "time.h"
 
 int
 run_spatio_temporal_query_in_host(struct spatio_temporal_range_predicate *predicate, struct traj_storage *data_storage,
@@ -327,7 +328,7 @@ int estimate_spatio_temporal_result_size_for_blocks(struct seg_meta_section_entr
             }
         }
     }
-    return result_size;
+    return result_size + 8 * (result_size / 0x1000);    // extra space for metadata in isp output block
 }
 
 int assemble_lba_vec(struct lba *lba_vec, int base_lba, int *block_logical_adr_vec, int block_logical_adr_vec_size) {
@@ -681,6 +682,9 @@ run_spatio_temporal_query_in_host(struct spatio_temporal_range_predicate *predic
     int aggregated_block_vec_size = calculate_aggregate_block_vec_size(block_logical_addr_vec, block_logical_addr_count);
     struct continuous_block_meta aggregated_block_vec[aggregated_block_vec_size];
     aggregate_blocks(block_logical_addr_vec, block_logical_addr_count, aggregated_block_vec, aggregated_block_vec_size);
+
+    clock_t start, end;
+    start = clock();
     for (int i = 0; i < aggregated_block_vec_size; i++) {
         struct continuous_block_meta block_meta = aggregated_block_vec[i];
 
@@ -693,6 +697,8 @@ run_spatio_temporal_query_in_host(struct spatio_temporal_range_predicate *predic
         free(buffer);
 
     }
+    end = clock();
+    printf("pure read time [host]: %f\n",(double)(end-start));
     return result_count;
 }
 
@@ -746,6 +752,9 @@ run_spatio_temporal_query_device(struct spatio_temporal_range_predicate *predica
                                  struct seg_meta_section_entry_storage *meta_storage, int block_logical_addr_count,
                                  int *block_logical_addr_vec) {
     int result_count = 0;
+
+    clock_t start, end;
+
     for (int i = 0; i < block_logical_addr_count; i += 256) {
         int block_addr_vec_size = block_logical_addr_count - i > 256 ? 256 : block_logical_addr_count - i;
         int estimated_result_size = estimate_spatio_temporal_result_size_for_blocks(meta_storage, predicate, &block_logical_addr_vec[i], block_addr_vec_size);
@@ -757,6 +766,8 @@ run_spatio_temporal_query_device(struct spatio_temporal_range_predicate *predica
             estimated_result_size = ((estimated_result_size / 0x1000) + 1) * 0x1000;
         }
         int estimated_result_block_num = estimated_result_size / 0x1000;
+        //int estimated_result_block_num = 1;
+
         void* result_buffer = malloc(estimated_result_size);
 
         int block_meta_vec_size = calculate_aggregate_block_vec_size(&block_logical_addr_vec[i], block_addr_vec_size);
@@ -767,7 +778,10 @@ run_spatio_temporal_query_device(struct spatio_temporal_range_predicate *predica
         struct lba lba_vec[block_meta_vec_size];
         assemble_lba_vec_via_block_meta(lba_vec, DATA_FILE_OFFSET, block_meta_vec, block_meta_vec_size);
         assemble_isp_desc_for_spatial_temporal(&isp_desc, predicate, estimated_result_block_num, lba_vec, block_meta_vec_size);
+
+        start = clock();
         do_isp_for_trajectory_data(data_storage, result_buffer, estimated_result_size, &isp_desc);
+        end = clock();
 
         for (int block_count = 0; block_count < estimated_result_block_num; block_count++) {
             int count = spatio_temporal_query_isp_output_block(result_buffer + block_count * 4096, predicate);
@@ -775,7 +789,10 @@ run_spatio_temporal_query_device(struct spatio_temporal_range_predicate *predica
         }
 
         free(result_buffer);
+
+        printf("pure read time [isp]: %f\n",(double)(end-start));
     }
+
     return result_count;
 }
 

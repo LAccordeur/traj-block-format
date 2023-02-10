@@ -69,6 +69,9 @@ struct ns_entry {
 
 void init_and_mk_fs_for_traj(bool is_flushed);
 
+void spdk_flush_static_fs_meta_for_traj();
+
+void print_spdk_static_fs_meta_for_traj();
 /**
  * initialize spdk nvme driver and store driver structure in @driver_desc
  * @param driver_desc

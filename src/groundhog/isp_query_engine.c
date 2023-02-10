@@ -49,7 +49,9 @@ static void spatio_temporal_query_page(void *data_block, struct isp_output_buffe
     int traj_point_size = get_traj_point_size();
     for (int j = 0; j < block_header.seg_count; j++) {
         struct seg_meta meta_item = meta_array[j];
-        if (descriptor->time_min <= meta_item.time_max && descriptor->time_max >= meta_item.time_min) {
+        if (descriptor->time_min <= meta_item.time_max && descriptor->time_max >= meta_item.time_min
+            && descriptor->lon_min <= meta_item.lon_max && descriptor->lon_max >= meta_item.lon_min
+            && descriptor->lat_min <= meta_item.lat_max && descriptor->lat_max >= meta_item.lat_min) {
             int data_seg_points_num = meta_item.seg_size / get_traj_point_size();
             char *seg_data_base = (char*)data_block + meta_item.seg_offset;
             struct traj_point seg_point;

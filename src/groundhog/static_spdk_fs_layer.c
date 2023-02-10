@@ -35,6 +35,14 @@ void init_and_mk_fs_for_traj(bool is_flushed) {
 
 }
 
+void spdk_flush_static_fs_meta_for_traj() {
+    spdk_flush_static_fs_meta(&spdk_static_fs_layer_for_traj);
+}
+
+void print_spdk_static_fs_meta_for_traj() {
+    print_spdk_static_fs_meta(&spdk_static_fs_layer_for_traj);
+}
+
 static struct spdk_nvme_transport_id g_trid = {};
 static bool g_vmd = false;
 static TAILQ_HEAD(, ctrlr_entry) g_controllers = TAILQ_HEAD_INITIALIZER(g_controllers);
