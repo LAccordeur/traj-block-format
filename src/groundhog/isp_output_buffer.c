@@ -15,6 +15,7 @@ void allocate_isp_output_buffer(struct isp_output_buffer *output_buffer, struct 
 
     for (size_t i = 0; i < capacity; i++) {
         output_buffer->iov[i].iov_base = alloc_pages(1, ZONE_PS_DDR_LOW);
+        memset(output_buffer->iov[i].iov_base, 0, ISP_BUFFER_PAGE_SIZE);
         //xil_printf("[ISP] allocation iov_base ptr: %p\n", output_buffer->iov[i].iov_base);
         //output_buffer->iov[i].iov_base = malloc(ISP_BUFFER_PAGE_SIZE);
         output_buffer->iov[i].iov_len = ISP_BUFFER_PAGE_SIZE;

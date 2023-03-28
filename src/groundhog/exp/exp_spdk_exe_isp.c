@@ -259,6 +259,7 @@ init_sequence(struct hello_world_sequence *sequence, size_t block_size, int esti
     if (is_id_temporal_query) {
         generate_id_temporal_computation_descriptor(sequence->buf, id_predicate, estimated_result_block_num);
     } else {
+        //estimated_result_block_num = 0;
         generate_spatio_temporal_computation_descriptor(sequence->buf, range_predicate, estimated_result_block_num);
     }
 
@@ -334,19 +335,19 @@ hello_world(void)
 
         int read_block_size = 4096;
         bool is_id_temporal_query = false;
-        int read_block_num = 1;
-        int estimated_result_block_num = 1;
+        int read_block_num = 256;
+        int estimated_result_block_num = 2;
 
         int total_count = 0;
         clock_t begin = clock();
-        for (int i = 0; i < 1; i++) {
-            if (i == 0) {
-                st_predicates[0]->lon_min = 0;
+        for (int i = 0; i < 8; i++) {
+            if (i == 5) {
+                /*st_predicates[0]->lon_min = 0;
                 st_predicates[0]->lon_max = 2147483647;
                 st_predicates[0]->lat_min = 0;
                 st_predicates[0]->lat_max = 2147483647;
                 st_predicates[0]->time_min = 0;
-                st_predicates[0]->time_max = 2147483647;
+                st_predicates[0]->time_max = 2147483647;*/
                 struct hello_world_sequence sequence;
                 size_t sz;
                 init_sequence(&sequence, read_block_size, estimated_result_block_num, 1, ns_entry, &sz, id_predicates[i], st_predicates[i],

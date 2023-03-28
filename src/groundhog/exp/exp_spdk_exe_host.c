@@ -571,8 +571,8 @@ hello_world(void)
 
         int read_block_num = 256;
 
-        for (int i = 0; i < 4; i++) {
-            if (i == 0) {
+        for (int i = 0; i < 8; i++) {
+            if (i == 5) {
                 struct hello_world_sequence sequence;
                 size_t sz;
                 init_sequence(&sequence, read_block_size, read_block_num, 1, ns_entry, &sz, id_predicates[i],
@@ -582,7 +582,7 @@ hello_world(void)
                 rc = spdk_nvme_ns_cmd_read(ns_entry->ns, ns_entry->qpair, sequence.buf,
                                            0, /* LBA start */
                                            read_block_num, /* number of LBAs */
-                                           exe_complete_with_computation_without_meta_filtering, &sequence, 0);
+                                           exe_complete_with_computation_with_meta_filtering, &sequence, 0);
 
                 if (rc != 0) {
                     fprintf(stderr, "starting write I/O failed\n");

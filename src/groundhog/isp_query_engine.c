@@ -38,7 +38,7 @@ static void id_temporal_query_page(void *data_block, struct isp_output_buffer *o
 }
 
 static void spatio_temporal_query_page(void *data_block, struct isp_output_buffer *output_buffer, struct isp_descriptor *descriptor) {
-	xil_printf("[ISP] begin spatio temporal query page: data_block ptr: %p\n", data_block);
+	//xil_printf("[ISP] begin spatio temporal query page: data_block ptr: %p\n", data_block);
     // parse data block
     struct traj_block_header block_header;
     parse_traj_block_for_header(data_block, &block_header);
