@@ -89,3 +89,9 @@ target_link_libraries(pre_spdk_write ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-bu
 
 add_executable(exp_spdk_exe_isp src/groundhog/exp/exp_spdk_exe_isp.c)
 target_link_libraries(exp_spdk_exe_isp ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
+add_executable(exp_spdk_exe_isp_multi src/groundhog/exp/exp_spdk_exe_isp_multi.c)
+target_link_libraries(exp_spdk_exe_isp_multi ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
+add_executable(exp_spdk_exe_isp_fpga src/groundhog/exp/exp_spdk_exe_isp_fpga.c)
+target_link_libraries(exp_spdk_exe_isp_fpga ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)

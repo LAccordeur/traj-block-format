@@ -78,7 +78,7 @@ struct hello_world_sequence {
 };
 
 static struct traj_point **points_buffer;
-static int points_buffer_size = 100;
+static int points_buffer_size = 300;
 static void fill_points_buffer(int points_num) {
     points_buffer = allocate_points_memory(points_num);
 }
@@ -535,18 +535,7 @@ hello_world(void)
 
 
     TAILQ_FOREACH(ns_entry, &g_namespaces, link) {
-        /*
-         * Allocate an I/O qpair that we can use to submit read/write requests
-         *  to namespaces on the controller.  NVMe controllers typically support
-         *  many qpairs per controller.  Any I/O qpair allocated for a controller
-         *  can submit I/O to any namespace on that controller.
-         *
-         * The SPDK NVMe driver provides no synchronization for qpair accesses -
-         *  the application must ensure only a single thread submits I/O to a
-         *  qpair, and that same thread must also check for completions on that
-         *  qpair.  This enables extremely efficient I/O processing by making all
-         *  I/O operations completely lockless.
-         */
+
         ns_entry->qpair = spdk_nvme_ctrlr_alloc_io_qpair(ns_entry->ctrlr, NULL, 0);
         if (ns_entry->qpair == NULL) {
             printf("ERROR: spdk_nvme_ctrlr_alloc_io_qpair() failed\n");
@@ -569,20 +558,34 @@ hello_world(void)
         clock_t begin = clock();
         bool is_id_temporal_query = false;
 
-        int read_block_num = 256;
+        int read_block_num = 2048;
+
+        bool use_synthetic = true;
+        int lon_min = 0;
+        int lon_max = 48100;
+        int lat_min = 0;
+        int lat_max = 48100;
+        int time_min = 0;
+        int time_max = 48100;
+        struct spatio_temporal_range_predicate synthetic_range_predicate = {.lon_min = lon_min, .lon_max = lon_max, .lat_min = lat_min, .lat_max = lat_max, .time_min = time_min, .time_max = time_max};
+
 
         for (int i = 0; i < 8; i++) {
             if (i == 5) {
                 struct hello_world_sequence sequence;
                 size_t sz;
-                init_sequence(&sequence, read_block_size, read_block_num, 1, ns_entry, &sz, id_predicates[i],
-                              st_predicates[i], is_id_temporal_query);
-
+                if (use_synthetic) {
+                    init_sequence(&sequence, read_block_size, read_block_num, 1, ns_entry, &sz, id_predicates[i],
+                                  &synthetic_range_predicate, is_id_temporal_query);
+                } else {
+                    init_sequence(&sequence, read_block_size, read_block_num, 1, ns_entry, &sz, id_predicates[i],
+                                  st_predicates[i], is_id_temporal_query);
+                }
                 clock_t begin1 = clock();
                 rc = spdk_nvme_ns_cmd_read(ns_entry->ns, ns_entry->qpair, sequence.buf,
                                            0, /* LBA start */
                                            read_block_num, /* number of LBAs */
-                                           exe_complete_with_computation_with_meta_filtering, &sequence, 0);
+                                           exe_complete_with_computation_without_meta_filtering, &sequence, 0);
 
                 if (rc != 0) {
                     fprintf(stderr, "starting write I/O failed\n");

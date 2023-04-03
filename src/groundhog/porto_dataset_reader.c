@@ -113,6 +113,17 @@ int read_points_from_csv(FILE *fp, struct traj_point **points, int row_offset, i
     return line_count;
 }
 
+int generate_synthetic_points(struct traj_point **points, int row_offset, int row_count) {
+    int value = row_offset;
+    for (int i = 0; i < row_count; i++) {
+        points[i]->oid = value;
+        points[i]->normalized_longitude = value;
+        points[i]->normalized_latitude = value;
+        points[i]->timestamp_sec = value;
+        value = value + 1;
+    }
+}
+
 /*
 void convert_serialized_to_struct_traj(void *serialized_buffer, struct traj_point **points, int total_size) {
 

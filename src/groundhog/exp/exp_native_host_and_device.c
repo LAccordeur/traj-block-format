@@ -53,7 +53,7 @@ static void exp_native_spatio_temporal_host(struct spatio_temporal_range_predica
     free_query_engine(&rebuild_engine);
 }
 
-static void exp_native_spatio_temporal_device(struct spatio_temporal_range_predicate *predicate) {
+static void exp_native_spatio_temporal_armcpu_full_pushdown(struct spatio_temporal_range_predicate *predicate) {
     init_and_mk_fs_for_traj(true);
     print_spdk_static_fs_meta_for_traj();
 
@@ -78,7 +78,7 @@ int main(void) {
 
     clock_t start, end;
     start = clock();
-    exp_native_spatio_temporal_device(&predicate);
+    exp_native_spatio_temporal_armcpu_full_pushdown(&predicate);
     end = clock();
     printf("time: %f\n",(double)(end-start));
 

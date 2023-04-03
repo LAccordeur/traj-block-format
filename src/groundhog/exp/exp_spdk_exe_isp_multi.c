@@ -1,7 +1,6 @@
 //
-// Created by yangguo on 23-2-10.
+// Created by yangguo on 22-12-29.
 //
-
 /*   SPDX-License-Identifier: BSD-3-Clause
  *   Copyright (c) Intel Corporation.
  *   All rights reserved.
@@ -16,9 +15,12 @@
 #include "spdk/string.h"
 #include "spdk/log.h"
 #include "groundhog/traj_block_format.h"
-#include "groundhog/porto_dataset_reader.h"
+#include "groundhog/isp_descriptor.h"
+#include "groundhog/simple_query_engine.h"
+#include "groundhog/isp_output_format.h"
+#include "groundhog/query_workload_reader.h"
 
-struct ctrlr_entry {
+/*struct ctrlr_entry {
     struct spdk_nvme_ctrlr		*ctrlr;
     TAILQ_ENTRY(ctrlr_entry)	link;
     char				name[1024];
@@ -29,7 +31,7 @@ struct ns_entry {
     struct spdk_nvme_ns	*ns;
     TAILQ_ENTRY(ns_entry)	link;
     struct spdk_nvme_qpair	*qpair;
-};
+};*/
 
 static TAILQ_HEAD(, ctrlr_entry) g_controllers = TAILQ_HEAD_INITIALIZER(g_controllers);
 static TAILQ_HEAD(, ns_entry) g_namespaces = TAILQ_HEAD_INITIALIZER(g_namespaces);
@@ -64,12 +66,81 @@ struct hello_world_sequence {
     struct ns_entry	*ns_entry;
     char		*buf;
     unsigned        using_cmb_io;
-    int     block_index;
+    int         block_index;
     int		is_completed;
+    int points_num;
+    bool is_id_temporal_query;
+    int estimated_result_block_num;
+    struct id_temporal_predicate id_temporal;
+    struct spatio_temporal_range_predicate spatio_temporal;
 };
 
+static int
+id_temporal_isp_traj_block(struct hello_world_sequence *sequence) {
+    printf("oid: %d\n", sequence->id_temporal.oid);
+
+    struct id_temporal_predicate *predicate = &sequence->id_temporal;
+    char* block = sequence->buf;
+    int result_count = 0;
+
+    for (int block_count = 0; block_count < sequence->estimated_result_block_num; block_count++, block+=4096) {
+        int points_num = parse_points_num_from_output_buffer_page(block);
+        printf("block points num: %d\n", points_num);
+        if (points_num > 0) {
+            struct traj_point **points = allocate_points_memory(points_num);
+            deserialize_output_buffer_page(block, points, points_num);
+            for (int k = 0; k < points_num; k++) {
+                struct traj_point *point = points[k];
+                //printf("oid: %d, time: %d, lon: %d, lat: %d\n", point->oid, point->timestamp_sec, point->normalized_longitude, point->normalized_latitude);
+                if (point->oid == predicate->oid
+                    && predicate->time_min <= point->timestamp_sec
+                    && predicate->time_max >= point->timestamp_sec) {
+                    result_count++;
+                }
+            }
+            free_points_memory(points, points_num);
+        }
+    }
+
+    return result_count;
+}
+
+static int
+spatio_temporal_isp_traj_block(struct hello_world_sequence *sequence) {
+    printf("spatio-temporal query\n");
+
+    struct spatio_temporal_range_predicate *predicate = &sequence->spatio_temporal;
+    void* block = sequence->buf;
+    int result_count = 0;
+    struct traj_point **points = allocate_points_memory(255);
+    for (int block_count = 0; block_count < sequence->estimated_result_block_num; block_count++, block+=4096) {
+        int points_num = parse_points_num_from_output_buffer_page(block);
+        printf("block points num: %d\n", points_num);
+        if (points_num > 0) {
+            //struct traj_point **points = allocate_points_memory(points_num);
+            deserialize_output_buffer_page(block, points, points_num);
+            for (int k = 0; k < points_num; k++) {
+                struct traj_point *point = points[k];
+                printf("oid: %d, time: %d, lon: %d, lat: %d\n", point->oid, point->timestamp_sec, point->normalized_longitude, point->normalized_latitude);
+                if (predicate->lon_min <= point->normalized_longitude
+                    && predicate->lon_max >= point->normalized_longitude
+                    && predicate->lat_min <= point->normalized_latitude
+                    && predicate->lat_max >= point->normalized_latitude
+                    && predicate->time_min <= point->timestamp_sec
+                    && predicate->time_max >= point->timestamp_sec) {
+                    result_count++;
+                }
+            }
+            //free_points_memory(points, points_num);
+        }
+    }
+    free_points_memory(points, 255);
+
+    return result_count;
+}
+
 static void
-read_complete(void *arg, const struct spdk_nvme_cpl *completion)
+exe_complete(void *arg, const struct spdk_nvme_cpl *completion)
 {
     struct hello_world_sequence *sequence = arg;
 
@@ -93,44 +164,17 @@ read_complete(void *arg, const struct spdk_nvme_cpl *completion)
      *  completed.  This will trigger the hello_world() function
      *  to exit its polling loop.
      */
-    printf("%s", sequence->buf);
-    spdk_free(sequence->buf);
-}
-
-static void
-write_complete(void *arg, const struct spdk_nvme_cpl *completion)
-{
-    struct hello_world_sequence	*sequence = arg;
-    struct ns_entry			*ns_entry = sequence->ns_entry;
-    int				rc;
-
-    /* See if an error occurred. If so, display information
-     * about it, and set completion value so that I/O
-     * caller is aware that an error occurred.
-     */
-    if (spdk_nvme_cpl_is_error(completion)) {
-        spdk_nvme_qpair_print_completion(sequence->ns_entry->qpair, (struct spdk_nvme_cpl *)completion);
-        fprintf(stderr, "I/O error status: %s\n", spdk_nvme_cpl_get_status_string(&completion->status));
-        fprintf(stderr, "Write I/O failed, aborting run\n");
-        sequence->is_completed = 2;
-        exit(1);
-    }
-    /*
-     * The write I/O has completed.  Free the buffer associated with
-     *  the write I/O and allocate a new zeroed buffer for reading
-     *  the data back from the NVMe namespace.
-     */
-    if (sequence->using_cmb_io) {
-        spdk_nvme_ctrlr_unmap_cmb(ns_entry->ctrlr);
+    int count = 0;
+    if (sequence->is_id_temporal_query) {
+        count = id_temporal_isp_traj_block(sequence);
     } else {
-        spdk_free(sequence->buf);
+        count = spatio_temporal_isp_traj_block(sequence);
     }
-
-    sequence->is_completed = 1;
-
-    printf("finish one write and block index is: %d.\n", sequence->block_index);
-
+    spdk_free(sequence->buf);
+    sequence->points_num = count;
+    printf("total result count: %d\n", count);
 }
+
 
 static void
 reset_zone_complete(void *arg, const struct spdk_nvme_cpl *completion)
@@ -170,7 +214,31 @@ reset_zone_and_wait_for_completion(struct hello_world_sequence *sequence)
 }
 
 static void
-init_sequence(struct hello_world_sequence *sequence, char *data_buffer, size_t block_size, int block_index, struct ns_entry	*ns_entry, size_t *sz) {
+generate_id_temporal_computation_descriptor(void *buf, struct id_temporal_predicate *predicate, int estimated_result_block_num, struct lba *lba_vec, int lba_vec_size) {
+    struct isp_descriptor desc = {.isp_type = 0, .oid = predicate->oid, .time_min = predicate->time_min, .time_max = predicate->time_max, .lba_count = lba_vec_size, .estimated_result_page_num = estimated_result_block_num};
+
+    desc.lba_array = lba_vec;
+    int desc_size = calculate_isp_descriptor_space(&desc);
+    if (desc_size >= 4096) {
+        printf("the descriptor size is too big\n");
+    }
+    serialize_isp_descriptor(&desc, buf);
+}
+
+static void
+generate_spatio_temporal_computation_descriptor(void *buf, struct spatio_temporal_range_predicate *predicate, int estimated_result_block_num, struct lba *lba_vec, int lba_vec_size) {
+    struct isp_descriptor desc = {.isp_type = 1, .lon_min = predicate->lon_min, .lon_max = predicate->lon_max, .lat_min = predicate->lat_min, .lat_max = predicate->lat_max, .time_min = predicate->time_min, .time_max = predicate->time_max, .lba_count = lba_vec_size, .estimated_result_page_num = estimated_result_block_num};
+
+    desc.lba_array = lba_vec;
+    int desc_size = calculate_isp_descriptor_space(&desc);
+    if (desc_size >= 4096) {
+        printf("the descriptor size is too big\n");
+    }
+    serialize_isp_descriptor(&desc, buf);
+}
+
+static void
+init_sequence(struct hello_world_sequence *sequence, size_t block_size, int estimated_result_block_num, int block_index, struct ns_entry	*ns_entry, size_t *sz, struct id_temporal_predicate *id_predicate, struct spatio_temporal_range_predicate *range_predicate, bool is_id_temporal_query, struct lba *lba_vec, int lba_vec_size) {
     /*
          * Use spdk_dma_zmalloc to allocate a 4KB zeroed buffer.  This memory
          * will be pinned, which is required for data buffers used for SPDK NVMe
@@ -180,12 +248,27 @@ init_sequence(struct hello_world_sequence *sequence, char *data_buffer, size_t b
     sequence->buf = spdk_nvme_ctrlr_map_cmb(ns_entry->ctrlr, sz);
     if (sequence->buf == NULL || *sz < block_size) {
         sequence->using_cmb_io = 0;
-        sequence->buf = spdk_zmalloc(block_size, 0x1000, NULL, SPDK_ENV_SOCKET_ID_ANY, SPDK_MALLOC_DMA);
+        sequence->buf = spdk_zmalloc(block_size * estimated_result_block_num, 0x1000, NULL, SPDK_ENV_SOCKET_ID_ANY, SPDK_MALLOC_DMA);
     }
     if (sequence->buf == NULL) {
         printf("ERROR: write buffer allocation failed\n");
         return;
     }
+
+    printf("buf pointer: %p\n", sequence->buf);
+    //struct id_temporal_predicate predicate = {.oid = 20000380, .time_min = 1372636853, .time_max = 1372637853};
+    sequence->id_temporal = *id_predicate;
+    sequence->spatio_temporal = *range_predicate;
+    if (is_id_temporal_query) {
+        generate_id_temporal_computation_descriptor(sequence->buf, id_predicate, estimated_result_block_num, lba_vec, lba_vec_size);
+    } else {
+        generate_spatio_temporal_computation_descriptor(sequence->buf, range_predicate, estimated_result_block_num, lba_vec, lba_vec_size);
+    }
+    /*struct isp_descriptor deserialized_desc;
+    deserialize_isp_descriptor(sequence->buf, &deserialized_desc);
+    print_isp_descriptor(&deserialized_desc);
+    free_isp_descriptor(&deserialized_desc);*/
+
     if (sequence->using_cmb_io) {
         printf("INFO: using controller memory buffer for IO\n");
     } else {
@@ -209,16 +292,18 @@ init_sequence(struct hello_world_sequence *sequence, char *data_buffer, size_t b
      *  to demonstrate the full I/O path.
      */
     sequence->block_index = block_index;
-    //snprintf(sequence->buf, block_size, "%s", data_buffer);
-    memcpy(sequence->buf, data_buffer, block_size);
-}
+    sequence->estimated_result_block_num = estimated_result_block_num;
+    sequence->points_num = 0;
+    sequence->is_id_temporal_query = is_id_temporal_query;
 
+}
 
 static void
 hello_world(void)
 {
     struct ns_entry			*ns_entry;
     int				rc;
+
 
     TAILQ_FOREACH(ns_entry, &g_namespaces, link) {
 
@@ -228,63 +313,80 @@ hello_world(void)
             return;
         }
 
-        int block_num = 2048;
-        int traj_block_size = 4096;
-        int split_segment_num = 10;
-        int points_num = calculate_points_num_via_block_size(traj_block_size, split_segment_num);
-        printf("point num per block: %d\n", points_num);
-        FILE *fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
-        char my_buffer[traj_block_size];
-        struct traj_point **points = allocate_points_memory(points_num);
+
+        FILE *id_query_fp = fopen("/home/yangguo/Downloads/porto_10w_id_24h.query", "r");
+        struct id_temporal_predicate **id_predicates = allocate_id_temporal_predicate_mem(50);
+        read_id_temporal_queries_from_csv(id_query_fp, id_predicates, 50);
+
+        FILE *st_query_fp = fopen("/home/yangguo/Downloads/porto_10w_1h_01.query", "r");
+        struct spatio_temporal_range_predicate **st_predicates = allocate_spatio_temporal_predicate_mem(50);
+        read_spatio_temporal_queries_from_csv(st_query_fp, st_predicates, 50);
+
+
+        int read_block_size = 4096;
+        bool is_id_temporal_query = false;
+        int estimated_result_block_num = 30;
+        int lba_vec_size = 3;
+        struct lba lba_vec[lba_vec_size];
+        lba_vec[0].start_lba = 0;
+        lba_vec[0].sector_count = 100;
+        lba_vec[1].start_lba = 100;
+        lba_vec[1].sector_count = 100;
+        lba_vec[2].start_lba = 200;
+        lba_vec[2].sector_count = 1356;
+        /*lba_vec[0].start_lba = 0;
+        lba_vec[0].sector_count = 256;
+        lba_vec[1].start_lba = 256;
+        lba_vec[1].sector_count = 256;
+        lba_vec[2].start_lba = 512;
+        lba_vec[2].sector_count = 256;*/
+
+        int total_count = 0;
 
         bool use_synthetic = true;
-        if (fp != NULL) {
+        int lon_min = 0;
+        int lon_max = 4810;
+        int lat_min = 0;
+        int lat_max = 4810;
+        int time_min = 0;
+        int time_max = 4810;
+        struct spatio_temporal_range_predicate synthetic_range_predicate = {.lon_min = lon_min, .lon_max = lon_max, .lat_min = lat_min, .lat_max = lat_max, .time_min = time_min, .time_max = time_max};
 
-            for (int i = 0; i < block_num; i++) {
 
+        for (int i = 0; i < 50; i++) {
+            if (i == 15) {
                 struct hello_world_sequence sequence;
-                size_t				sz;
+                size_t sz;
                 if (use_synthetic) {
-                    generate_synthetic_points(points, i * points_num, points_num);
-                    print_traj_points(points, points_num);
+                    init_sequence(&sequence, read_block_size, estimated_result_block_num, 1, ns_entry, &sz,
+                                  id_predicates[i], &synthetic_range_predicate, is_id_temporal_query, lba_vec, lba_vec_size);
+
                 } else {
-                    read_points_from_csv(fp, points, i * points_num, points_num);
-                    print_traj_points(points, points_num);
+                    init_sequence(&sequence, read_block_size, estimated_result_block_num, 1, ns_entry, &sz,
+                                  id_predicates[i], st_predicates[i], is_id_temporal_query, lba_vec, lba_vec_size);
                 }
-                do_self_contained_traj_block(points, points_num, my_buffer, traj_block_size);
-                init_sequence(&sequence, my_buffer, traj_block_size, i, ns_entry, &sz);
+                clock_t begin = clock();
+                rc = spdk_nvme_ns_cmd_exe_multi(ns_entry->ns, ns_entry->qpair, sequence.buf,
+                                                0, /* LBA start */
+                                                estimated_result_block_num, /* number of LBAs */
+                                                exe_complete, &sequence, 0);
 
-
-                rc = spdk_nvme_ns_cmd_write(ns_entry->ns, ns_entry->qpair, sequence.buf,
-                                            i, /* LBA start */
-                                            1, /* number of LBAs */
-                                            write_complete, &sequence, 0);
                 if (rc != 0) {
                     fprintf(stderr, "starting write I/O failed\n");
                     exit(1);
                 }
 
-                /*
-                 * Poll for completions.  0 here means process all available completions.
-                 *  In certain usage models, the caller may specify a positive integer
-                 *  instead of 0 to signify the maximum number of completions it should
-                 *  process.  This function will never block - if there are no
-                 *  completions pending on the specified qpair, it will return immediately.
-                 *
-                 * When the write I/O completes, write_complete() will submit a new I/O
-                 *  to read LBA 0 into a separate buffer, specifying read_complete() as its
-                 *  completion routine.  When the read I/O completes, read_complete() will
-                 *  print the buffer contents and set sequence.is_completed = 1.  That will
-                 *  break this loop and then exit the program.
-                 */
+
                 while (!sequence.is_completed) {
                     spdk_nvme_qpair_process_completions(ns_entry->qpair, 0);
                 }
+                clock_t end = clock();
+                double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
+                printf("read operation time: %f\n", time_spent);
+                total_count += sequence.points_num;
             }
-
-            fclose(fp);
         }
-        free_points_memory(points, points_num);
+
         /*
          * Free the I/O qpair.  This typically is done when an application exits.
          *  But SPDK does support freeing and then reallocating qpairs during
@@ -292,8 +394,11 @@ hello_world(void)
          *  pending I/O are completed before trying to free the qpair.
          */
         spdk_nvme_ctrlr_free_io_qpair(ns_entry->qpair);
+        printf("total point count: %d\n", total_count);
     }
 }
+
+
 
 static bool
 probe_cb(void *cb_ctx, const struct spdk_nvme_transport_id *trid,
@@ -503,7 +608,11 @@ main(int argc, char **argv)
     }
 
     printf("Initialization complete.\n");
+    clock_t begin = clock();
     hello_world();
+    clock_t end = clock();
+    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    printf("hello world total time: %f\n", time_spent);
     cleanup();
     if (g_vmd) {
         spdk_vmd_fini();
