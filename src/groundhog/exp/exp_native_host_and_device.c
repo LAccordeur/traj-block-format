@@ -47,7 +47,7 @@ static void exp_native_spatio_temporal_host(struct spatio_temporal_range_predica
 
 
     rebuild_query_engine_from_file(&rebuild_engine);
-    int engine_result = spatio_temporal_query_without_pushdown(&rebuild_engine, predicate);
+    int engine_result = spatio_temporal_query_without_pushdown(&rebuild_engine, predicate, false);
     printf("engine result: %d\n", engine_result);
 
     free_query_engine(&rebuild_engine);
@@ -65,20 +65,38 @@ static void exp_native_spatio_temporal_armcpu_full_pushdown(struct spatio_tempor
 
 
     rebuild_query_engine_from_file(&rebuild_engine);
-    int engine_result = spatio_temporal_query_with_full_pushdown(&rebuild_engine, predicate);
+    int engine_result = spatio_temporal_query_with_full_pushdown(&rebuild_engine, predicate, false);
     printf("engine result: %d\n", engine_result);
     free_query_engine(&rebuild_engine);
 
 }
 
+static void exp_native_spatio_temporal_fpga_full_pushdown(struct spatio_temporal_range_predicate *predicate) {
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+    int engine_result = spatio_temporal_query_with_full_pushdown_fpga(&rebuild_engine, predicate, false);
+    printf("engine result: %d\n", engine_result);
+    free_query_engine(&rebuild_engine);
+}
+
 
 int main(void) {
     ingest_and_flush_data();
-    struct spatio_temporal_range_predicate predicate = {0, 2147483647, 0, 2147483647, 1372636853, 1372757330};
+    //struct spatio_temporal_range_predicate predicate = {0, 2147483647, 0, 2147483647, 1372636853, 1372757330};
+    struct spatio_temporal_range_predicate predicate = {0, 2147483647, 0, 2147483647, 1372636853, 1372637331};
 
     clock_t start, end;
     start = clock();
-    exp_native_spatio_temporal_armcpu_full_pushdown(&predicate);
+    exp_native_spatio_temporal_fpga_full_pushdown(&predicate);
     end = clock();
     printf("time: %f\n",(double)(end-start));
 

@@ -21,6 +21,11 @@ run_spatio_temporal_query_device(struct spatio_temporal_range_predicate *predica
                                  struct seg_meta_section_entry_storage *meta_storage, int block_logical_addr_count,
                                  int *block_logical_addr_vec);
 
+int
+run_spatio_temporal_query_device_fpga(struct spatio_temporal_range_predicate *predicate, struct traj_storage *data_storage,
+                                      struct seg_meta_section_entry_storage *meta_storage, int block_logical_addr_count,
+                                      int *block_logical_addr_vec);
+
 static int check_oid_exist(const int *oids, int array_size, int checked_oid) {
     for (int i = 0; i < array_size; i++) {
         if (oids[i] == checked_oid) {
@@ -389,7 +394,7 @@ int id_temporal_query_isp(struct simple_query_engine *engine, struct id_temporal
     struct lba lba_vec[256];
     int lba_vec_size = assemble_lba_vec(lba_vec, DATA_FILE_OFFSET, block_logical_adr_vec, block_logical_adr_count);
     assemble_isp_desc_for_id_temporal(&isp_desc, predicate, estimated_result_block_num, lba_vec, lba_vec_size);
-    do_isp_for_trajectory_data(data_storage, result_buffer, estimated_result_size, &isp_desc);
+    do_isp_for_trajectory_data(data_storage, result_buffer, estimated_result_size, &isp_desc, 0);
 
     for (int block_count = 0; block_count < estimated_result_block_num; block_count++, result_buffer+=4096) {
         int points_num = parse_points_num_from_output_buffer_page(result_buffer);
@@ -458,7 +463,7 @@ int spatio_temporal_query_isp(struct simple_query_engine *engine, struct spatio_
     struct lba lba_vec[256];
     int lba_vec_size = assemble_lba_vec(lba_vec, DATA_FILE_OFFSET, block_logical_adr_vec, block_logical_adr_count);
     assemble_isp_desc_for_spatial_temporal(&isp_desc, predicate, estimated_result_block_num, lba_vec, lba_vec_size);
-    do_isp_for_trajectory_data(data_storage, result_buffer, estimated_result_size, &isp_desc);
+    do_isp_for_trajectory_data(data_storage, result_buffer, estimated_result_size, &isp_desc, 0);
 
     for (int block_count = 0; block_count < estimated_result_block_num; block_count++, result_buffer+=4096) {
         int points_num = parse_points_num_from_output_buffer_page(result_buffer);
@@ -604,6 +609,18 @@ static int spatio_temporal_query_isp_output_block(void* data_block, struct spati
     return result_count;
 }
 
+static int spatio_temporal_query_isp_fpga_output_blocks(void* data_blocks, struct spatio_temporal_range_predicate *predicate) {
+    int result_count = 0;
+    memcpy(&result_count, data_blocks, 4);
+
+    struct traj_point *points_base = (struct traj_point *)((char *)data_blocks + 16);
+    for (int i = 0; i < result_count; i++) {
+        struct traj_point tmp = points_base[i];
+        //printf("oid: %d, lon: %d, lat: %d, time: %d\n", tmp.oid, tmp.normalized_longitude, tmp.normalized_latitude, tmp.timestamp_sec);
+    }
+    return result_count;
+}
+
 static double calculate_goodness_for_spatio_temporal(struct seg_meta_section_entry_storage *storage, int block_logical_pointer, struct spatio_temporal_range_predicate *predicate) {
     int result_size = 0;
     int total_size = 0;
@@ -626,7 +643,7 @@ static double calculate_goodness_for_spatio_temporal(struct seg_meta_section_ent
     return 1.0 * result_size / total_size;
 }
 
-int spatio_temporal_query_without_pushdown(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate) {
+int spatio_temporal_query_without_pushdown(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index) {
 
     struct index_entry_storage *index_storage = &engine->index_storage;
     struct traj_storage *data_storage = &engine->data_storage;
@@ -636,12 +653,16 @@ int spatio_temporal_query_without_pushdown(struct simple_query_engine *engine, s
     int block_logical_addr_count = 0;
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
-        if (predicate->lon_min <= entry->lon_max
-            && predicate->lon_max >= entry->lon_min
-            && predicate->lat_min <= entry->lat_max
-            && predicate->lat_max >= entry->lat_min
-            && predicate->time_min <= entry->time_max
-            && predicate->time_max >= entry->time_min) {
+        if (enable_host_index) {
+            if (predicate->lon_min <= entry->lon_max
+                && predicate->lon_max >= entry->lon_min
+                && predicate->lat_min <= entry->lat_max
+                && predicate->lat_max >= entry->lat_min
+                && predicate->time_min <= entry->time_max
+                && predicate->time_max >= entry->time_min) {
+                block_logical_addr_count++;
+            }
+        } else {
             block_logical_addr_count++;
         }
     }
@@ -655,12 +676,17 @@ int spatio_temporal_query_without_pushdown(struct simple_query_engine *engine, s
     int addr_vec_index = 0;
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
-        if (predicate->lon_min <= entry->lon_max
-            && predicate->lon_max >= entry->lon_min
-            && predicate->lat_min <= entry->lat_max
-            && predicate->lat_max >= entry->lat_min
-            && predicate->time_min <= entry->time_max
-            && predicate->time_max >= entry->time_min) {
+        if (enable_host_index) {
+            if (predicate->lon_min <= entry->lon_max
+                && predicate->lon_max >= entry->lon_min
+                && predicate->lat_min <= entry->lat_max
+                && predicate->lat_max >= entry->lat_min
+                && predicate->time_min <= entry->time_max
+                && predicate->time_max >= entry->time_min) {
+                block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
+                addr_vec_index++;
+            }
+        } else {
             block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
             addr_vec_index++;
         }
@@ -702,7 +728,7 @@ run_spatio_temporal_query_in_host(struct spatio_temporal_range_predicate *predic
     return result_count;
 }
 
-int spatio_temporal_query_with_full_pushdown(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate) {
+int spatio_temporal_query_with_full_pushdown(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index) {
 
     struct index_entry_storage *index_storage = &engine->index_storage;
     struct traj_storage *data_storage = &engine->data_storage;
@@ -712,12 +738,16 @@ int spatio_temporal_query_with_full_pushdown(struct simple_query_engine *engine,
     int block_logical_addr_count = 0;
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
-        if (predicate->lon_min <= entry->lon_max
-            && predicate->lon_max >= entry->lon_min
-            && predicate->lat_min <= entry->lat_max
-            && predicate->lat_max >= entry->lat_min
-            && predicate->time_min <= entry->time_max
-            && predicate->time_max >= entry->time_min) {
+        if (enable_host_index) {
+            if (predicate->lon_min <= entry->lon_max
+                && predicate->lon_max >= entry->lon_min
+                && predicate->lat_min <= entry->lat_max
+                && predicate->lat_max >= entry->lat_min
+                && predicate->time_min <= entry->time_max
+                && predicate->time_max >= entry->time_min) {
+                block_logical_addr_count++;
+            }
+        } else {
             block_logical_addr_count++;
         }
     }
@@ -730,12 +760,17 @@ int spatio_temporal_query_with_full_pushdown(struct simple_query_engine *engine,
     int addr_vec_index = 0;
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
-        if (predicate->lon_min <= entry->lon_max
-            && predicate->lon_max >= entry->lon_min
-            && predicate->lat_min <= entry->lat_max
-            && predicate->lat_max >= entry->lat_min
-            && predicate->time_min <= entry->time_max
-            && predicate->time_max >= entry->time_min) {
+        if (enable_host_index) {
+            if (predicate->lon_min <= entry->lon_max
+                && predicate->lon_max >= entry->lon_min
+                && predicate->lat_min <= entry->lat_max
+                && predicate->lat_max >= entry->lat_min
+                && predicate->time_min <= entry->time_max
+                && predicate->time_max >= entry->time_min) {
+                block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
+                addr_vec_index++;
+            }
+        } else {
             block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
             addr_vec_index++;
         }
@@ -743,6 +778,60 @@ int spatio_temporal_query_with_full_pushdown(struct simple_query_engine *engine,
 
     // run query
     int result_count = run_spatio_temporal_query_device(predicate, data_storage, meta_storage, block_logical_addr_count,
+                                                        block_logical_addr_vec);
+    return result_count;
+}
+
+int spatio_temporal_query_with_full_pushdown_fpga(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index) {
+
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    // calculate the matched block num
+    int block_logical_addr_count = 0;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        if (enable_host_index) {
+            if (predicate->lon_min <= entry->lon_max
+                && predicate->lon_max >= entry->lon_min
+                && predicate->lat_min <= entry->lat_max
+                && predicate->lat_max >= entry->lat_min
+                && predicate->time_min <= entry->time_max
+                && predicate->time_max >= entry->time_min) {
+                block_logical_addr_count++;
+            }
+        } else {
+            block_logical_addr_count++;
+        }
+    }
+    if (block_logical_addr_count == 0) {
+        return 0;
+    }
+
+    // get the match block id vector
+    int block_logical_addr_vec[block_logical_addr_count];
+    int addr_vec_index = 0;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        if (enable_host_index) {
+            if (predicate->lon_min <= entry->lon_max
+                && predicate->lon_max >= entry->lon_min
+                && predicate->lat_min <= entry->lat_max
+                && predicate->lat_max >= entry->lat_min
+                && predicate->time_min <= entry->time_max
+                && predicate->time_max >= entry->time_min) {
+                block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
+                addr_vec_index++;
+            }
+        } else {
+            block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
+            addr_vec_index++;
+        }
+    }
+
+    // run query
+    int result_count = run_spatio_temporal_query_device_fpga(predicate, data_storage, meta_storage, block_logical_addr_count,
                                                         block_logical_addr_vec);
     return result_count;
 }
@@ -780,13 +869,59 @@ run_spatio_temporal_query_device(struct spatio_temporal_range_predicate *predica
         assemble_isp_desc_for_spatial_temporal(&isp_desc, predicate, estimated_result_block_num, lba_vec, block_meta_vec_size);
 
         start = clock();
-        do_isp_for_trajectory_data(data_storage, result_buffer, estimated_result_size, &isp_desc);
+        do_isp_for_trajectory_data(data_storage, result_buffer, estimated_result_size, &isp_desc, 0);
         end = clock();
 
         for (int block_count = 0; block_count < estimated_result_block_num; block_count++) {
             int count = spatio_temporal_query_isp_output_block(result_buffer + block_count * 4096, predicate);
             result_count += count;
         }
+
+        free(result_buffer);
+
+        printf("pure read time [isp]: %f\n",(double)(end-start));
+    }
+
+    return result_count;
+}
+
+int
+run_spatio_temporal_query_device_fpga(struct spatio_temporal_range_predicate *predicate, struct traj_storage *data_storage,
+                                 struct seg_meta_section_entry_storage *meta_storage, int block_logical_addr_count,
+                                 int *block_logical_addr_vec) {
+    int result_count = 0;
+
+    clock_t start, end;
+
+    for (int i = 0; i < block_logical_addr_count; i += 256) {
+        int block_addr_vec_size = block_logical_addr_count - i > 256 ? 256 : block_logical_addr_count - i;
+        int estimated_result_size = estimate_spatio_temporal_result_size_for_blocks(meta_storage, predicate, &block_logical_addr_vec[i], block_addr_vec_size);
+        printf("estimated result size: %d\n", estimated_result_size);
+        if (estimated_result_size == 0) {
+            continue;
+        }
+        if (estimated_result_size % 0x1000 != 0) {
+            estimated_result_size = ((estimated_result_size / 0x1000) + 1) * 0x1000;
+        }
+        int estimated_result_block_num = estimated_result_size / 0x1000;
+        //int estimated_result_block_num = 1;
+
+        void* result_buffer = malloc(estimated_result_size);
+
+        int block_meta_vec_size = calculate_aggregate_block_vec_size(&block_logical_addr_vec[i], block_addr_vec_size);
+        struct continuous_block_meta block_meta_vec[block_meta_vec_size];
+        aggregate_blocks(&block_logical_addr_vec[i], block_addr_vec_size, block_meta_vec, block_meta_vec_size);
+
+        struct isp_descriptor isp_desc;
+        struct lba lba_vec[block_meta_vec_size];
+        assemble_lba_vec_via_block_meta(lba_vec, DATA_FILE_OFFSET, block_meta_vec, block_meta_vec_size);
+        assemble_isp_desc_for_spatial_temporal(&isp_desc, predicate, estimated_result_block_num, lba_vec, block_meta_vec_size);
+
+        start = clock();
+        do_isp_for_trajectory_data(data_storage, result_buffer, estimated_result_size, &isp_desc, 1);
+        end = clock();
+
+        result_count += spatio_temporal_query_isp_fpga_output_blocks(result_buffer, predicate);
 
         free(result_buffer);
 

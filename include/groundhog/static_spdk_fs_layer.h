@@ -102,6 +102,8 @@ size_t spdk_static_fs_fread(const void *data_ptr, size_t size, struct spdk_stati
  */
 size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc, struct isp_descriptor *isp_desc);
 
+size_t spdk_static_fs_fread_isp_fpga(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc, struct isp_descriptor *isp_desc);
+
 size_t spdk_static_fs_fseek(struct spdk_static_file_desc *file_desc, long int offset);
 
 

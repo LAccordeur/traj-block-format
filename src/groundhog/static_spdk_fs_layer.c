@@ -6,6 +6,8 @@
 #include "groundhog/static_spdk_fs_layer.h"
 #include "spdk/nvme_zns.h"
 
+#define MAX_TRANSFER_SECTOR_COUNT 256
+
 struct spdk_static_fs_desc spdk_static_fs_layer_for_traj;
 static struct spdk_nvme_driver_desc spdk_driver_desc;
 static struct spdk_static_file_desc file_desc_vec[3];
@@ -506,7 +508,7 @@ size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_s
     for (int i = 0; i < isp_desc->lba_count; i++) {
         total_sector_count += isp_desc->lba_array[i].sector_count;
     }
-    if (total_sector_count > 256) {
+    if (total_sector_count > MAX_TRANSFER_SECTOR_COUNT) {
         fprintf(stderr, "[spdk_fs_isp] too much sector read in one operation\n");
         exit(-1);
     }
@@ -551,6 +553,72 @@ size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_s
                                lba_start,
                                sector_count,
                                read_complete, (void*)&sequence, 0);
+
+    if (rc != 0) {
+        fprintf(stderr, "starting read I/O failed\n");
+    }
+
+    /* poll for completions */
+    while (!sequence.is_completed) {
+        spdk_nvme_qpair_process_completions(ns_entry->qpair, 1);
+    }
+
+
+    return sector_count * SECTOR_SIZE;
+}
+
+size_t spdk_static_fs_fread_isp_fpga(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc, struct isp_descriptor *isp_desc) {
+
+    // check the number of sector (should be less than or equal to 256)
+    int total_sector_count = 0;
+    for (int i = 0; i < isp_desc->lba_count; i++) {
+        total_sector_count += isp_desc->lba_array[i].sector_count;
+    }
+    if (total_sector_count > MAX_TRANSFER_SECTOR_COUNT) {
+        fprintf(stderr, "[spdk_fs_isp] too much sector read in one operation\n");
+        exit(-1);
+    }
+
+    struct ns_entry *ns_entry = file_desc->fs_desc->driver_desc->ns_entry;
+    struct callback_sequence sequence;
+    sequence.is_completed = 0;
+    sequence.ns_entry = ns_entry;
+
+    size_t spdk_buffer_size = size;
+    if (size % 0x1000 != 0) {
+        spdk_buffer_size = ((size / 0x1000) + 1) * 0x1000;
+    }
+    char *spdk_buffer_ptr = spdk_zmalloc(spdk_buffer_size, 0x1000, NULL, SPDK_ENV_SOCKET_ID_ANY, SPDK_MALLOC_DMA);
+    if (spdk_buffer_ptr == NULL) {
+        printf("ERROR: spdk write buffer allocation failed\n");
+        return -1;
+    }
+    memset(spdk_buffer_ptr, 0, size);
+    sequence.buf = spdk_buffer_ptr;
+    sequence.application_read_buf = (char*)data_ptr;
+    sequence.application_read_buf_size = size;
+
+    int rc;
+    int lba_start = file_desc->start_lba + file_desc->current_read_offset;
+    int sector_count;
+    if (size % SECTOR_SIZE == 0) {
+        sector_count = size / SECTOR_SIZE;
+    } else {
+        sector_count = size / SECTOR_SIZE + 1;
+    }
+
+
+    int desc_size = calculate_isp_descriptor_space(isp_desc);
+    if (desc_size >= 4096) {
+        printf("the descriptor size is too big\n");
+    }
+    serialize_isp_descriptor(isp_desc, sequence.buf);
+
+    // lba_start and sector_count are not actually used in SSD
+    rc = spdk_nvme_ns_cmd_exe_multi_fpga(ns_entry->ns, ns_entry->qpair, sequence.buf,
+                                    lba_start,
+                                    sector_count,
+                                    read_complete, (void*)&sequence, 0);
 
     if (rc != 0) {
         fprintf(stderr, "starting read I/O failed\n");

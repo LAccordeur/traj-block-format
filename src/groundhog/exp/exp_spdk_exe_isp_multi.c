@@ -333,7 +333,7 @@ hello_world(void)
         lba_vec[1].start_lba = 100;
         lba_vec[1].sector_count = 100;
         lba_vec[2].start_lba = 200;
-        lba_vec[2].sector_count = 1356;
+        lba_vec[2].sector_count = 3896;
         /*lba_vec[0].start_lba = 0;
         lba_vec[0].sector_count = 256;
         lba_vec[1].start_lba = 256;
@@ -344,12 +344,12 @@ hello_world(void)
         int total_count = 0;
 
         bool use_synthetic = true;
-        int lon_min = 0;
-        int lon_max = 4810;
-        int lat_min = 0;
-        int lat_max = 4810;
-        int time_min = 0;
-        int time_max = 4810;
+        int lon_min = 961559;
+        int lon_max = 962559;
+        int lat_min = 961559;
+        int lat_max = 962559;
+        int time_min = 961559;
+        int time_max = 962559;
         struct spatio_temporal_range_predicate synthetic_range_predicate = {.lon_min = lon_min, .lon_max = lon_max, .lat_min = lat_min, .lat_max = lat_max, .time_min = time_min, .time_max = time_max};
 
 

@@ -558,7 +558,7 @@ hello_world(void)
         clock_t begin = clock();
         bool is_id_temporal_query = false;
 
-        int read_block_num = 2048;
+        int read_block_num = 4096;
 
         bool use_synthetic = true;
         int lon_min = 0;

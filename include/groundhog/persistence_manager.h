@@ -26,7 +26,7 @@ size_t my_fwrite(const void *ptr, size_t size, size_t nmemb, struct my_file *str
 
 size_t my_fread(void *ptr, size_t size, size_t nmemb, struct my_file *stream, int fs_mode);
 
-size_t my_fread_isp(void *ptr, size_t estimated_result_size, struct my_file *stream, struct isp_descriptor *isp_desc);
+size_t my_fread_isp(void *ptr, size_t estimated_result_size, struct my_file *stream, struct isp_descriptor *isp_desc, int accelerator_type);
 
 size_t my_fseek(struct my_file *stream, long int offset, int fs_mode);
 

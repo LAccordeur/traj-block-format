@@ -228,7 +228,7 @@ hello_world(void)
             return;
         }
 
-        int block_num = 2048;
+        int block_num = 4096;
         int traj_block_size = 4096;
         int split_segment_num = 10;
         int points_num = calculate_points_num_via_block_size(traj_block_size, split_segment_num);

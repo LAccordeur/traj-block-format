@@ -48,8 +48,14 @@ size_t my_fread(void *ptr, size_t size, size_t nmemb, struct my_file *stream, in
     }*/
 }
 
-size_t my_fread_isp(void *ptr, size_t estimated_result_size, struct my_file *stream, struct isp_descriptor *isp_desc) {
-    spdk_static_fs_fread_isp(ptr, estimated_result_size, stream->spdk_file, isp_desc);
+size_t my_fread_isp(void *ptr, size_t estimated_result_size, struct my_file *stream, struct isp_descriptor *isp_desc, int accelerator_type) {
+    if (accelerator_type == 0) {
+        // arm cpu
+        spdk_static_fs_fread_isp(ptr, estimated_result_size, stream->spdk_file, isp_desc);
+    } else if (accelerator_type == 1) {
+        // fpga
+        spdk_static_fs_fread_isp_fpga(ptr, estimated_result_size, stream->spdk_file, isp_desc);
+    }
 }
 
 

@@ -103,9 +103,9 @@ void fetch_continuous_traj_data_block(struct traj_storage *storage, int block_lo
     }
 }
 
-void do_isp_for_trajectory_data(struct traj_storage *storage, void* result_buffer, size_t estimated_result_size, struct isp_descriptor *isp_desc) {
+void do_isp_for_trajectory_data(struct traj_storage *storage, void* result_buffer, size_t estimated_result_size, struct isp_descriptor *isp_desc, int accelerator_type) {
     struct my_file *my_fp = storage->my_fp;
-    my_fread_isp(result_buffer, estimated_result_size, my_fp, isp_desc);
+    my_fread_isp(result_buffer, estimated_result_size, my_fp, isp_desc, accelerator_type);
 }
 
 void free_traj_storage(struct traj_storage *storage) {
