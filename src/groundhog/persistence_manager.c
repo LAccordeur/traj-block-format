@@ -59,11 +59,17 @@ size_t my_fread_isp(void *ptr, size_t estimated_result_size, struct my_file *str
 }
 
 
-size_t my_fseek(struct my_file *stream, long int offset, int fs_mode) {
+size_t my_fseek(struct my_file *stream, long long offset, int fs_mode) {
     if (fs_mode == COMMON_FS_MODE) {
+        if (offset > 2147483647) {
+            printf("too large offset");
+        }
         return common_fs_seek(stream->common_file, offset, SEEK_SET);
     }
     if (fs_mode == SPDK_FS_MODE) {
+        if (offset > 9223372036854775807) {
+            printf("too large offset");
+        }
         return spdk_static_fs_fseek(stream->spdk_file, offset);
     }
 }

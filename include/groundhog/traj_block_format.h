@@ -25,6 +25,7 @@ struct seg_meta {
 
 struct traj_block_header {
     int seg_count;
+    int alignment_field;
 };
 
 struct seg_meta_pair {

@@ -52,6 +52,8 @@ void ingest_synthetic_data_via_time_partition(struct simple_query_engine *engine
 
 void ingest_and_flush_data_via_time_partition(struct simple_query_engine *engine, FILE *fp, int block_num);
 
+void ingest_and_flush_synthetic_data_via_time_partition(struct simple_query_engine *engine, int block_num);
+
 void rebuild_query_engine_from_file(struct simple_query_engine *engine);
 
 int id_temporal_query(struct simple_query_engine *engine, struct id_temporal_predicate *predicate);

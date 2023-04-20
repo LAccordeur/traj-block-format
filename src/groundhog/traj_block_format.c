@@ -40,7 +40,7 @@ static const int SEG_OFFSET_OFFSET = TIME_MAX_OFFSET + TIME_MAX_SIZE;
 static const int SEG_SIZE_OFFSET = SEG_OFFSET_OFFSET + SEG_OFFSET_SIZE;
 static const int SEG_META_SIZE = LON_MIN_SIZE + LON_MAX_SIZE + LAT_MIN_SIZE + LAT_MAX_SIZE + TIME_MIN_SIZE + TIME_MAX_SIZE + SEG_OFFSET_SIZE + SEG_SIZE_SIZE;
 
-static const int HEADER_SEG_COUNT_SIZE = size_of_attribute(struct traj_block_header, seg_count);
+static const int HEADER_SEG_COUNT_SIZE = size_of_attribute(struct traj_block_header, seg_count) + size_of_attribute(struct traj_block_header, alignment_field);
 static const int HEADER_SEG_COUNT_OFFSET = 0;
 static const int HEADER_SIZE = HEADER_SEG_COUNT_SIZE;
 

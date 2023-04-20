@@ -78,6 +78,8 @@ void fetch_traj_data_via_logical_pointer(struct traj_storage *storage, int logic
 void fetch_continuous_traj_data_block(struct traj_storage *storage, int block_logical_pointer_start, int block_num, void* destination) {
     int fs_mode = storage->my_fp->fs_mode;
     struct my_file *my_fp = storage->my_fp;
+
+
     if (fs_mode == COMMON_FS_MODE) {
         my_fseek(my_fp, TRAJ_BLOCK_SIZE * block_logical_pointer_start, fs_mode);
         my_fread(destination, block_num, TRAJ_BLOCK_SIZE, my_fp, fs_mode);
@@ -86,13 +88,17 @@ void fetch_continuous_traj_data_block(struct traj_storage *storage, int block_lo
         // check if the sector count exceed the limit in FTL (256)
         int block_num_limit = 256 * SECTOR_SIZE / TRAJ_BLOCK_SIZE;
         if (block_num <= block_num_limit) {
-            my_fseek(my_fp, TRAJ_BLOCK_SIZE * block_logical_pointer_start, fs_mode);
+            long long my_offset = TRAJ_BLOCK_SIZE * (long long) block_logical_pointer_start;
+            my_fseek(my_fp, my_offset, fs_mode);
             my_fread(destination, block_num, TRAJ_BLOCK_SIZE, my_fp, fs_mode);
         } else {
             int remaining_block_num = block_num;
             int i = 0;
             do {
-                my_fseek(my_fp, TRAJ_BLOCK_SIZE * block_logical_pointer_start + i * block_num_limit * TRAJ_BLOCK_SIZE, fs_mode);
+                long long my_offset = TRAJ_BLOCK_SIZE * (long long) block_logical_pointer_start + i * block_num_limit * TRAJ_BLOCK_SIZE;
+                my_fseek(my_fp, my_offset, fs_mode);
+
+                //my_fseek(my_fp, TRAJ_BLOCK_SIZE * block_logical_pointer_start + i * block_num_limit * TRAJ_BLOCK_SIZE, fs_mode);
                 int read_block_num = remaining_block_num > block_num_limit ? block_num_limit : remaining_block_num;
                 my_fread(destination + i * block_num_limit * TRAJ_BLOCK_SIZE, read_block_num, TRAJ_BLOCK_SIZE, my_fp, fs_mode);
 
