@@ -86,7 +86,16 @@ id_temporal_isp_traj_block(struct hello_world_sequence *sequence) {
     char* block = sequence->buf;
     int result_count = 0;
 
-    for (int block_count = 0; block_count < sequence->estimated_result_block_num; block_count++, block+=4096) {
+    memcpy(&result_count, block, 4);
+    printf("result count: %d\n", result_count);
+    struct traj_point *points_base = (struct traj_point *)((char *)block + 16);
+    for (int i = 0; i < result_count; i++) {
+        struct traj_point tmp = points_base[i];
+        //printf("oid: %d, lon: %d, lat: %d, time: %d\n", tmp.oid, tmp.normalized_longitude, tmp.normalized_latitude, tmp.timestamp_sec);
+    }
+
+
+    /*for (int block_count = 0; block_count < sequence->estimated_result_block_num; block_count++, block+=4096) {
         int points_num = parse_points_num_from_output_buffer_page(block);
         printf("block points num: %d\n", points_num);
         if (points_num > 0) {
@@ -103,7 +112,7 @@ id_temporal_isp_traj_block(struct hello_world_sequence *sequence) {
             }
             free_points_memory(points, points_num);
         }
-    }
+    }*/
 
     return result_count;
 }
@@ -312,7 +321,7 @@ hello_world(void)
 
 
         int read_block_size = 4096;
-        bool is_id_temporal_query = false;
+        bool is_id_temporal_query = true;
         int estimated_result_block_num = 224;
         int lba_vec_size = 3;
         struct lba lba_vec[lba_vec_size];
@@ -336,9 +345,12 @@ hello_world(void)
         int lon_max = 962559;
         int lat_min = 961559;
         int lat_max = 962559;
-        int time_min = 961559;
-        int time_max = 962559;
+        int time_min = 34;
+        int time_max = 1223;
         struct spatio_temporal_range_predicate synthetic_range_predicate = {.lon_min = lon_min, .lon_max = lon_max, .lat_min = lat_min, .lat_max = lat_max, .time_min = time_min, .time_max = time_max};
+
+        int oid = 0;
+        struct id_temporal_predicate synthetic_id_predicate = {.oid = oid, .time_min = time_min, .time_max = time_max};
 
         for (int i = 0; i < 50; i++) {
             if (i == 5) {
@@ -346,7 +358,7 @@ hello_world(void)
                 size_t sz;
                 if (use_synthetic) {
                     init_sequence(&sequence, read_block_size, estimated_result_block_num, 1, ns_entry, &sz,
-                                  id_predicates[i], &synthetic_range_predicate, is_id_temporal_query, lba_vec, lba_vec_size);
+                                  &synthetic_id_predicate, &synthetic_range_predicate, is_id_temporal_query, lba_vec, lba_vec_size);
                 } else {
                     init_sequence(&sequence, read_block_size, estimated_result_block_num, 1, ns_entry, &sz,
                                   id_predicates[i], st_predicates[i], is_id_temporal_query, lba_vec, lba_vec_size);

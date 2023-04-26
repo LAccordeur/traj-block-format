@@ -378,7 +378,7 @@ int estimate_spatio_temporal_result_size(struct seg_meta_section_entry_storage *
 
 int estimate_spatio_temporal_result_size_for_blocks(struct seg_meta_section_entry_storage *storage, struct spatio_temporal_range_predicate *predicate, int *block_addr_vec, int block_addr_vec_size) {
     int result_size = 0;
-    for (int i = 0; i <= storage->current_index; i++) {
+    /*for (int i = 0; i <= storage->current_index; i++) {
 
         struct seg_meta_section_entry *entry = storage->base[i];
         for (int j = 0; j < block_addr_vec_size; j++) {
@@ -396,8 +396,25 @@ int estimate_spatio_temporal_result_size_for_blocks(struct seg_meta_section_entr
                 }
             }
         }
+    }*/
+
+    for (int i = 0; i < block_addr_vec_size; i++) {
+        int block_addr = block_addr_vec[i];
+        struct seg_meta_section_entry * entry = storage->base[block_addr];
+        struct seg_meta meta_array[entry->seg_meta_count];
+        parse_seg_meta_section(entry->seg_meta_section, meta_array, entry->seg_meta_count);
+        for (int k = 0; k < entry->seg_meta_count; k++) {
+            struct seg_meta meta_item = meta_array[k];
+
+            if (predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min
+                && predicate->lon_min <= meta_item.lon_max && predicate->lon_max >= meta_item.lon_min
+                && predicate->lat_min <= meta_item.lat_max && predicate->lat_max >= meta_item.lat_min) {
+                result_size += meta_item.seg_size;
+            }
+        }
     }
-    return result_size + 8 * (result_size / 0x1000);    // extra space for metadata in isp output block
+
+    return result_size + 16 * (result_size / 0x1000);    // extra space for metadata in isp output block
 }
 
 int assemble_lba_vec(struct lba *lba_vec, int base_lba, int *block_logical_adr_vec, int block_logical_adr_vec_size) {
@@ -1005,7 +1022,7 @@ int spatio_temporal_query_with_full_pushdown_fpga(struct simple_query_engine *en
     printf("[isp fpga] read block num: %d\n", block_logical_addr_count);
     // run query
     int result_count = run_spatio_temporal_query_device_fpga(predicate, data_storage, meta_storage, block_logical_addr_count,
-                                                        block_logical_addr_vec, false);
+                                                        block_logical_addr_vec, true);
     return result_count;
 }
 
@@ -1082,6 +1099,7 @@ run_spatio_temporal_query_device_fpga(struct spatio_temporal_range_predicate *pr
     clock_t start, end, pure_read;
     pure_read = 0;
     clock_t start_all, end_all;
+    int total_result_block_num = 0;
     start_all = clock();
     fill_points_buffer(points_buffer_size);
     for (int i = 0; i < block_logical_addr_count; i += 256) {
@@ -1101,6 +1119,8 @@ run_spatio_temporal_query_device_fpga(struct spatio_temporal_range_predicate *pr
         }
         int estimated_result_block_num = estimated_result_size / 0x1000;
         //int estimated_result_block_num = 1;
+        total_result_block_num += estimated_result_block_num;
+
 
         void* result_buffer = malloc(estimated_result_size);
 
@@ -1125,6 +1145,7 @@ run_spatio_temporal_query_device_fpga(struct spatio_temporal_range_predicate *pr
     }
     free_points_buffer(points_buffer_size);
     end_all = clock();
+    printf("[isp fpga] estimated result block number: %d\n", total_result_block_num);
     printf("[isp fpga] pure read time: %f\n",(double)pure_read);
     printf("[isp fpga] query time (including estimation): %f\n", (double)(end_all - start_all));
 

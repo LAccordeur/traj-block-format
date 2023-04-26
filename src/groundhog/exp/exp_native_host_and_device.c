@@ -9,10 +9,10 @@
 #include "groundhog/query_workload_reader.h"
 #include "time.h"
 
-static void ingest_and_flush_data() {
+static void ingest_and_flush_porto_data(int data_block_num) {
     init_and_mk_fs_for_traj(false);
 
-    int data_block_num = 1024;
+    //int data_block_num = 1024;
 
     FILE *data_fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
     // ingest data
@@ -27,7 +27,7 @@ static void ingest_and_flush_data() {
     struct index_entry_storage *index_storage = &query_engine.index_storage;
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
-        printf("block pointer: [%d], time min: %d, time max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max);
+        printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
     }
 
     // save filesystem meta
@@ -73,7 +73,7 @@ static void exp_native_spatio_temporal_host(struct spatio_temporal_range_predica
     rebuild_query_engine_from_file(&rebuild_engine);
     clock_t start, end;
     start = clock();
-    int engine_result = spatio_temporal_query_without_pushdown(&rebuild_engine, predicate, false);
+    int engine_result = spatio_temporal_query_without_pushdown(&rebuild_engine, predicate, true);
     end = clock();
     printf("[host] query time (includin index lookup): %f\n", (double )(end - start));
     printf("engine result: %d\n", engine_result);
@@ -95,7 +95,7 @@ static void exp_native_spatio_temporal_armcpu_full_pushdown(struct spatio_tempor
     rebuild_query_engine_from_file(&rebuild_engine);
     clock_t start, end;
     start = clock();
-    int engine_result = spatio_temporal_query_with_full_pushdown(&rebuild_engine, predicate, false);
+    int engine_result = spatio_temporal_query_with_full_pushdown(&rebuild_engine, predicate, true);
     end = clock();
     printf("[isp cpu] query time (including index lookup): %f\n", (double )(end - start));
     printf("[isp cpu] engine result: %d\n", engine_result);
@@ -118,12 +118,13 @@ static void exp_native_spatio_temporal_fpga_full_pushdown(struct spatio_temporal
     rebuild_query_engine_from_file(&rebuild_engine);
     clock_t start, end;
     start = clock();
-    int engine_result = spatio_temporal_query_with_full_pushdown_fpga(&rebuild_engine, predicate, false);
+    int engine_result = spatio_temporal_query_with_full_pushdown_fpga(&rebuild_engine, predicate, true);
     end = clock();
     printf("[isp fpga] query time (includin index lookup): %f\n", (double )(end - start));
     printf("[isp fpga] engine result: %d\n", engine_result);
     free_query_engine(&rebuild_engine);
 }
+
 
 
 static void exp_native_spatio_temporal_host_v1(struct spatio_temporal_range_predicate *predicate, struct simple_query_engine *rebuild_engine) {
@@ -163,13 +164,13 @@ static void exp_native_spatio_temporal_fpga_full_pushdown_v1(struct spatio_tempo
 }
 
 static void run_on_porto_data() {
-    ingest_and_flush_data();
+    //ingest_and_flush_data();
     //struct spatio_temporal_range_predicate predicate = {0, 2147483647, 0, 2147483647, 1372636853, 1372757330};
-    struct spatio_temporal_range_predicate predicate = {0, 2147483647, 0, 2147483647, 1372636853, 1372637331};
+    struct spatio_temporal_range_predicate predicate = {7983124, 8000193, 12214847, 12221445, 0, 1380292968};
 
     clock_t start, end;
     start = clock();
-    exp_native_spatio_temporal_host(&predicate);
+    exp_native_spatio_temporal_fpga_full_pushdown(&predicate);
     end = clock();
     printf("total time: %f\n",(double)(end-start));
 }
@@ -464,8 +465,11 @@ int main(void) {
     // block pointer: [262143], time min: 61603605, time max: 61603839
     // block pointer: [1048575], time min: 246415125, time max: 246415359
     // 4G: 1048576  2G: 524288  1G: 262144  512MB: 131072   256MB: 65536
-    //ingest_and_flush_synthetic_data(512);
+    // ingest_and_flush_synthetic_data(65536);
+    // run_on_synthetic_data();
 
-    run_on_synthetic_data();
+    //ingest_and_flush_porto_data(65536);
+
+    run_on_porto_data();
 
 }
