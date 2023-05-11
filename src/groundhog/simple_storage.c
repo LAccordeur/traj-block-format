@@ -107,6 +107,15 @@ void fetch_continuous_traj_data_block(struct traj_storage *storage, int block_lo
             } while (remaining_block_num > 0);
         }
     }
+    for (int i =0; i < block_num; i++) {
+        char* offset = destination + i * TRAJ_BLOCK_SIZE;
+        int* int_ptr = (int*) offset;
+        //printf("%d\n", int_ptr[0]);
+        struct traj_block_header block_header;
+        parse_traj_block_for_header(offset, &block_header);
+
+        //printf("segment count: %d\n", block_header.seg_count);
+    }
 }
 
 void do_isp_for_trajectory_data(struct traj_storage *storage, void* result_buffer, size_t estimated_result_size, struct isp_descriptor *isp_desc, int accelerator_type) {

@@ -9,6 +9,8 @@
 #include "groundhog/query_workload_reader.h"
 #include "time.h"
 
+static bool enable_host_index = false;
+
 static void ingest_and_flush_porto_data(int data_block_num) {
     init_and_mk_fs_for_traj(false);
 
@@ -73,9 +75,31 @@ static void exp_native_spatio_temporal_host(struct spatio_temporal_range_predica
     rebuild_query_engine_from_file(&rebuild_engine);
     clock_t start, end;
     start = clock();
-    int engine_result = spatio_temporal_query_without_pushdown(&rebuild_engine, predicate, true);
+    int engine_result = spatio_temporal_query_without_pushdown(&rebuild_engine, predicate, false);
     end = clock();
-    printf("[host] query time (includin index lookup): %f\n", (double )(end - start));
+    printf("[host] query time (including index lookup): %f\n", (double )(end - start));
+    printf("engine result: %d\n", engine_result);
+
+    free_query_engine(&rebuild_engine);
+}
+
+static void exp_native_id_temporal_host(struct id_temporal_predicate *predicate) {
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+    clock_t start, end;
+    start = clock();
+    int engine_result = id_temporal_query_without_pushdown(&rebuild_engine, predicate, false);
+    end = clock();
+    printf("[host] id temporal query time (includin index lookup): %f\n", (double )(end - start));
     printf("engine result: %d\n", engine_result);
 
     free_query_engine(&rebuild_engine);
@@ -95,7 +119,29 @@ static void exp_native_spatio_temporal_armcpu_full_pushdown(struct spatio_tempor
     rebuild_query_engine_from_file(&rebuild_engine);
     clock_t start, end;
     start = clock();
-    int engine_result = spatio_temporal_query_with_full_pushdown(&rebuild_engine, predicate, true);
+    int engine_result = spatio_temporal_query_with_full_pushdown(&rebuild_engine, predicate, enable_host_index);
+    end = clock();
+    printf("[isp cpu] query time (including index lookup): %f\n", (double )(end - start));
+    printf("[isp cpu] engine result: %d\n", engine_result);
+    free_query_engine(&rebuild_engine);
+
+}
+
+static void exp_native_id_temporal_armcpu_full_pushdown(struct id_temporal_predicate *predicate) {
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+    clock_t start, end;
+    start = clock();
+    int engine_result = id_temporal_query_with_full_pushdown(&rebuild_engine, predicate, enable_host_index);
     end = clock();
     printf("[isp cpu] query time (including index lookup): %f\n", (double )(end - start));
     printf("[isp cpu] engine result: %d\n", engine_result);
@@ -118,20 +164,62 @@ static void exp_native_spatio_temporal_fpga_full_pushdown(struct spatio_temporal
     rebuild_query_engine_from_file(&rebuild_engine);
     clock_t start, end;
     start = clock();
-    int engine_result = spatio_temporal_query_with_full_pushdown_fpga(&rebuild_engine, predicate, true);
+    int engine_result = spatio_temporal_query_with_full_pushdown_fpga(&rebuild_engine, predicate, enable_host_index);
     end = clock();
     printf("[isp fpga] query time (includin index lookup): %f\n", (double )(end - start));
     printf("[isp fpga] engine result: %d\n", engine_result);
     free_query_engine(&rebuild_engine);
 }
 
+static void exp_native_id_temporal_fpga_full_pushdown(struct id_temporal_predicate *predicate) {
 
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+    clock_t start, end;
+    start = clock();
+    int engine_result = id_temporal_query_with_full_pushdown_fpga(&rebuild_engine, predicate, enable_host_index);
+    end = clock();
+    printf("[isp fpga] id temporal query time (includin index lookup): %f\n", (double )(end - start));
+    printf("[isp fpga] id temporal engine result: %d\n", engine_result);
+    free_query_engine(&rebuild_engine);
+}
+
+static void exp_native_spatio_temporal_adaptive_pushdown(struct spatio_temporal_range_predicate *predicate) {
+
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+    clock_t start, end;
+    start = clock();
+    int engine_result = spatio_temporal_query_with_adaptive_pushdown(&rebuild_engine, predicate, enable_host_index);
+    end = clock();
+    printf("[isp adaptive fpga] query time (includin index lookup): %f\n", (double )(end - start));
+    printf("[isp adaptive fpga] engine result: %d\n", engine_result);
+    free_query_engine(&rebuild_engine);
+}
 
 static void exp_native_spatio_temporal_host_v1(struct spatio_temporal_range_predicate *predicate, struct simple_query_engine *rebuild_engine) {
 
     clock_t start, end;
     start = clock();
-    int engine_result = spatio_temporal_query_without_pushdown(rebuild_engine, predicate, false);
+    int engine_result = spatio_temporal_query_without_pushdown(rebuild_engine, predicate, enable_host_index);
     end = clock();
     printf("[host] query time (includin index lookup): %f\n", (double )(end - start));
     printf("engine result: %d\n", engine_result);
@@ -143,7 +231,7 @@ static void exp_native_spatio_temporal_armcpu_full_pushdown_v1(struct spatio_tem
 
     clock_t start, end;
     start = clock();
-    int engine_result = spatio_temporal_query_with_full_pushdown(rebuild_engine, predicate, false);
+    int engine_result = spatio_temporal_query_with_full_pushdown(rebuild_engine, predicate, enable_host_index);
     end = clock();
     printf("[isp cpu] query time (including index lookup): %f\n", (double )(end - start));
     printf("[isp cpu] engine result: %d\n", engine_result);
@@ -156,10 +244,46 @@ static void exp_native_spatio_temporal_fpga_full_pushdown_v1(struct spatio_tempo
 
     clock_t start, end;
     start = clock();
-    int engine_result = spatio_temporal_query_with_full_pushdown_fpga(rebuild_engine, predicate, false);
+    int engine_result = spatio_temporal_query_with_full_pushdown_fpga(rebuild_engine, predicate, enable_host_index);
     end = clock();
     printf("[isp fpga] query time (includin index lookup): %f\n", (double )(end - start));
     printf("[isp fpga] engine result: %d\n", engine_result);
+
+}
+
+
+static void exp_native_id_temporal_fpga_full_pushdown_v1(struct id_temporal_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+
+
+    clock_t start, end;
+    start = clock();
+    int engine_result = id_temporal_query_with_full_pushdown_fpga(rebuild_engine, predicate, enable_host_index);
+    end = clock();
+    printf("[isp fpga] id temporal query time (includin index lookup): %f\n", (double )(end - start));
+    printf("[isp fpga] id temporal engine result: %d\n", engine_result);
+
+}
+
+static void exp_native_id_temporal_armcpu_full_pushdown_v1(struct id_temporal_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+
+    clock_t start, end;
+    start = clock();
+    int engine_result = id_temporal_query_with_full_pushdown(rebuild_engine, predicate, enable_host_index);
+    end = clock();
+    printf("[isp cpu] query time (including index lookup): %f\n", (double )(end - start));
+    printf("[isp cpu] engine result: %d\n", engine_result);
+
+
+}
+
+static void exp_native_id_temporal_host_v1(struct id_temporal_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+
+    clock_t start, end;
+    start = clock();
+    int engine_result = id_temporal_query_without_pushdown(rebuild_engine, predicate, enable_host_index);
+    end = clock();
+    printf("[host] id temporal query time (includin index lookup): %f\n", (double )(end - start));
+    printf("engine result: %d\n", engine_result);
 
 }
 
@@ -170,7 +294,7 @@ static void run_on_porto_data() {
 
     clock_t start, end;
     start = clock();
-    exp_native_spatio_temporal_fpga_full_pushdown(&predicate);
+    exp_native_spatio_temporal_host(&predicate);
     end = clock();
     printf("total time: %f\n",(double)(end-start));
 }
@@ -241,12 +365,14 @@ static void run_on_synthetic_data() {
     // 1048576 blocks
     struct spatio_temporal_range_predicate predicate_4g_9 = {0, 246415359, 0, 246415359, 0, 246415359};
 
+    struct spatio_temporal_range_predicate predicate = {0, 2949119*1, 0, 29491199, 0, 29491199};
 
     clock_t start, end;
     start = clock();
-    //exp_native_spatio_temporal_host(&predicate_4g_0);
-    //exp_native_spatio_temporal_armcpu_full_pushdown(&predicate_4g_0);
-    exp_native_spatio_temporal_fpga_full_pushdown(&predicate_4g_0);
+    exp_native_spatio_temporal_host(&predicate);
+    //exp_native_spatio_temporal_adaptive_pushdown(&predicate);
+    //exp_native_spatio_temporal_armcpu_full_pushdown(&predicate);
+    //exp_native_spatio_temporal_fpga_full_pushdown(&predicate);
     end = clock();
     printf("total time: %f\n",(double)(end-start));
     printf("---------------------------------\n");
@@ -268,6 +394,9 @@ static void run_on_synthetic_data_batch() {
     //ingest_and_flush_synthetic_data(4096);
 
     // predicate for 512 MB data
+
+
+
     // 1 blocks
     struct spatio_temporal_range_predicate predicate_512mb_0 = {30801685, 30801919, 30801685, 30801919, 30801685, 30801919};
 
@@ -333,7 +462,7 @@ static void run_on_synthetic_data_batch() {
 
     clock_t start, end;
     start = clock();
-    exp_native_spatio_temporal_host_v1(&predicate_4g_0, &rebuild_engine);
+    /*exp_native_spatio_temporal_host_v1(&predicate_4g_0, &rebuild_engine);
     printf("---------------------------------\n");
     exp_native_spatio_temporal_armcpu_full_pushdown_v1(&predicate_4g_0, &rebuild_engine);
     printf("---------------------------------\n");
@@ -391,9 +520,9 @@ static void run_on_synthetic_data_batch() {
     printf("---------------------------------\n");
     exp_native_spatio_temporal_armcpu_full_pushdown_v1(&predicate_4g_9, &rebuild_engine);
     printf("---------------------------------\n");
-    exp_native_spatio_temporal_fpga_full_pushdown_v1(&predicate_4g_9, &rebuild_engine);
+    exp_native_spatio_temporal_fpga_full_pushdown_v1(&predicate_4g_9, &rebuild_engine);*/
 
-    /*exp_native_spatio_temporal_host_v1(&predicate_512mb_0, &rebuild_engine);
+    exp_native_spatio_temporal_host_v1(&predicate_512mb_0, &rebuild_engine);
     printf("---------------------------------\n");
     exp_native_spatio_temporal_armcpu_full_pushdown_v1(&predicate_512mb_0, &rebuild_engine);
     printf("---------------------------------\n");
@@ -451,7 +580,137 @@ static void run_on_synthetic_data_batch() {
     printf("---------------------------------\n");
     exp_native_spatio_temporal_armcpu_full_pushdown_v1(&predicate_512mb_9, &rebuild_engine);
     printf("---------------------------------\n");
-    exp_native_spatio_temporal_fpga_full_pushdown_v1(&predicate_512mb_9, &rebuild_engine);*/
+    exp_native_spatio_temporal_fpga_full_pushdown_v1(&predicate_512mb_9, &rebuild_engine);
+    end = clock();
+    printf("total time: %f\n",(double)(end-start));
+
+    free_query_engine(&rebuild_engine);
+}
+
+static void run_on_synthetic_data_id() {
+    struct id_temporal_predicate predicate = {12, 0, 2949119*0};
+
+
+    clock_t start, end;
+    start = clock();
+    exp_native_id_temporal_host(&predicate);
+    //exp_native_id_temporal_fpga_full_pushdown(&predicate);
+    //exp_native_id_temporal_armcpu_full_pushdown(&predicate);
+    end = clock();
+    printf("total time: %f\n",(double)(end-start));
+    printf("---------------------------------\n");
+}
+
+static void run_on_synthetic_data_id_batch() {
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+
+    //ingest_and_flush_synthetic_data(4096);
+
+    // predicate for 512 MB data
+    // 1 blocks
+    struct id_temporal_predicate predicate_512mb_0 = {12, 30801685, 30801919};
+
+    // 13 blocks
+    struct id_temporal_predicate predicate_512mb_1 = {12, 30798877, 30801919};
+
+    // 131 blocks
+    struct id_temporal_predicate predicate_512mb_2 = {12, 30771134, 30801919};
+
+    // 1310 blocks
+    struct id_temporal_predicate predicate_512mb_3 = {12, 30494069, 30801919};
+
+    // 13107 blocks
+    struct id_temporal_predicate predicate_512mb_4 = {12, 27751774, 30801919};
+
+    // 26214 blocks
+    struct id_temporal_predicate predicate_512mb_5 = {12, 24641629, 30801919};
+
+    // 52428 blocks
+    struct id_temporal_predicate predicate_512mb_6 = {12, 18481339, 30801919};
+
+    // 78643 blocks
+    struct id_temporal_predicate predicate_512mb_7 = {12, 12320814, 30801919};
+
+    // 104857 blocks
+    struct id_temporal_predicate predicate_512mb_8 = {12, 6160524, 30801919};
+
+    // 131072 blocks
+    struct id_temporal_predicate predicate_512mb_9 = {12, 0, 30801919};
+
+
+
+    clock_t start, end;
+    start = clock();
+
+    exp_native_id_temporal_host_v1(&predicate_512mb_0, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_armcpu_full_pushdown_v1(&predicate_512mb_0, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_fpga_full_pushdown_v1(&predicate_512mb_0, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_host_v1(&predicate_512mb_1, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_armcpu_full_pushdown_v1(&predicate_512mb_1, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_fpga_full_pushdown_v1(&predicate_512mb_1, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_host_v1(&predicate_512mb_2, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_armcpu_full_pushdown_v1(&predicate_512mb_2, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_fpga_full_pushdown_v1(&predicate_512mb_2, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_host_v1(&predicate_512mb_3, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_armcpu_full_pushdown_v1(&predicate_512mb_3, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_fpga_full_pushdown_v1(&predicate_512mb_3, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_host_v1(&predicate_512mb_4, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_armcpu_full_pushdown_v1(&predicate_512mb_4, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_fpga_full_pushdown_v1(&predicate_512mb_4, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_host_v1(&predicate_512mb_5, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_armcpu_full_pushdown_v1(&predicate_512mb_5, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_fpga_full_pushdown_v1(&predicate_512mb_5, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_host_v1(&predicate_512mb_6, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_armcpu_full_pushdown_v1(&predicate_512mb_6, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_fpga_full_pushdown_v1(&predicate_512mb_6, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_host_v1(&predicate_512mb_7, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_armcpu_full_pushdown_v1(&predicate_512mb_7, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_fpga_full_pushdown_v1(&predicate_512mb_7, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_host_v1(&predicate_512mb_8, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_armcpu_full_pushdown_v1(&predicate_512mb_8, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_fpga_full_pushdown_v1(&predicate_512mb_8, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_host_v1(&predicate_512mb_9, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_armcpu_full_pushdown_v1(&predicate_512mb_9, &rebuild_engine);
+    printf("---------------------------------\n");
+    exp_native_id_temporal_fpga_full_pushdown_v1(&predicate_512mb_9, &rebuild_engine);
     end = clock();
     printf("total time: %f\n",(double)(end-start));
 
@@ -460,16 +719,20 @@ static void run_on_synthetic_data_batch() {
 
 
 int main(void) {
-    // block pointer: [25599], time min: 6015765, time max: 6015999
-    // block pointer: [131071], time min: 30801685, time max: 30801919
+    // block pointer: [32767], time min: 7372575, time max: 7372799
+    // block pointer: [65535], time min: 14745375, time max: 14745599
+    // block pointer: [131071], time min: 29490975, time max: 29491199
     // block pointer: [262143], time min: 61603605, time max: 61603839
-    // block pointer: [1048575], time min: 246415125, time max: 246415359
-    // 4G: 1048576  2G: 524288  1G: 262144  512MB: 131072   256MB: 65536
-    // ingest_and_flush_synthetic_data(65536);
-    // run_on_synthetic_data();
-
+    // block pointer: [1048575], time min: 235929375, time max: 235929599
+    // 4G: 1048576  2G: 524288  1G: 262144  512MB: 131072   256MB: 65536    128MB:32768
+    //ingest_and_flush_synthetic_data(131072);
+    run_on_synthetic_data();
+    //run_on_synthetic_data_batch();
+    //run_on_synthetic_data_batch();
     //ingest_and_flush_porto_data(65536);
 
-    run_on_porto_data();
+    //run_on_porto_data();
+
+
 
 }

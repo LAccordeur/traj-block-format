@@ -69,7 +69,9 @@ iterate_raw_traj_block(void* block) {
     parse_traj_block_for_header(block, &header);
 
     struct seg_meta meta_array[header.seg_count];
-    printf("seg count: %d\n", header.seg_count);
+    //if (header.seg_count != 10) {
+        printf("seg count: %d\n", header.seg_count);
+    //}
     parse_traj_block_for_seg_meta_section(block, meta_array, header.seg_count);
     for (int j = 0; j < header.seg_count; j++) {
         struct seg_meta meta_item = meta_array[j];
@@ -86,10 +88,14 @@ iterate_raw_traj_block(void* block) {
 }
 
 static int iterate_block(void* block) {
-    char *c = (char *) block;
-    for (int i = 0; i < 4096; i++) {
-        printf("%d\n", c[i]);
+    char *c;
+
+    for (int i = 0; i < 256; i++) {
+        c = (char *) block + i * 4096;
+        int *int_ptr = (int *)c;
+        printf("%d\n", int_ptr[0]);
     }
+    //printf("%d\n", int_ptr[0]);
     return 4096;
 }
 
@@ -119,9 +125,9 @@ read_complete(void *arg, const struct spdk_nvme_cpl *completion)
      *  to exit its polling loop.
      */
     //int count = iterate_raw_traj_block(sequence->buf);
-    int count = iterate_block(sequence->buf);
-    spdk_free(sequence->buf);
-    sequence->points_num = count;
+    //int count = iterate_block(sequence->buf);
+    //spdk_free(sequence->buf);
+    //sequence->points_num = count;
 }
 
 static void
@@ -221,7 +227,7 @@ init_sequence(struct hello_world_sequence *sequence, size_t block_size, int bloc
     if (sequence->using_cmb_io) {
         printf("INFO: using controller memory buffer for IO\n");
     } else {
-        printf("INFO: using host memory buffer for IO\n");
+        //printf("INFO: using host memory buffer for IO\n");
     }
     sequence->is_completed = 0;
     sequence->ns_entry = ns_entry;
@@ -280,11 +286,11 @@ hello_world(void)
         for (int i = 0; i < read_block_num; i++) {
             struct hello_world_sequence	sequence;
             size_t				sz;
-            init_sequence(&sequence,  read_block_size, i+1, ns_entry, &sz);
-            printf("i: %d\n", i);
+            init_sequence(&sequence,  read_block_size * 256, i+1, ns_entry, &sz);
+            //printf("i: %d\n", i);
             rc = spdk_nvme_ns_cmd_read(ns_entry->ns, ns_entry->qpair, sequence.buf,
-                                        i, /* LBA start */
-                                       1, /* number of LBAs */
+                                        0, /* LBA start */
+                                       256, /* number of LBAs */
                                        read_complete, &sequence, 0);
 
             if (rc != 0) {
@@ -301,7 +307,7 @@ hello_world(void)
 
         spdk_nvme_ctrlr_free_io_qpair(ns_entry->qpair);
         end = clock();
-        printf("total time: %f\n",(double)(end-start));
+        printf("total time: %f second\n",(double)(end-start) / CLOCKS_PER_SEC);
         printf("total point count: %d\n", total_count);
     }
 }
