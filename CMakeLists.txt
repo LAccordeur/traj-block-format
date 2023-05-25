@@ -51,6 +51,9 @@ add_library(traj_block_format
         src/groundhog/common_fs_layer.c
         src/groundhog/isp_output_format.c
         src/groundhog/static_spdk_fs_layer.c
+        src/groundhog/bloom/bitutil.c
+        src/groundhog/bloom/bloom.c
+        src/groundhog/bloom/hashf.c
         include/groundhog/normalization_util.h
         include/groundhog/traj_block_format.h
         include/groundhog/porto_dataset_reader.h
@@ -69,6 +72,9 @@ add_library(traj_block_format
         include/groundhog/static_spdk_fs_layer.h
         include/groundhog/common_util.h
         include/groundhog/log.h
+        include/groundhog/bloom/bitutil.h
+        include/groundhog/bloom/bloom.h
+        include/groundhog/bloom/hashf.h
         )
 
 
@@ -96,8 +102,17 @@ target_link_libraries(exp_spdk_exe_isp_multi ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/
 add_executable(exp_spdk_exe_isp_fpga src/groundhog/exp/exp_spdk_exe_isp_fpga.c)
 target_link_libraries(exp_spdk_exe_isp_fpga ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 
+add_executable(exp_spdk_exe_isp_fpga_multithread src/groundhog/exp/exp_spdk_exe_isp_fpga_multithread.c)
+target_link_libraries(exp_spdk_exe_isp_fpga_multithread ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
 add_executable(pre_spdk_flush src/groundhog/exp/pre_spdk_flush.c)
 target_link_libraries(pre_spdk_flush ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 
 add_executable(pre_spdk_read src/groundhog/exp/pre_spdk_read.c)
 target_link_libraries(pre_spdk_read ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
+add_executable(pre_spdk_read_multithread src/groundhog/exp/pre_spdk_read_multithread.c)
+target_link_libraries(pre_spdk_read_multithread ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
+add_executable(exp_cost_model src/groundhog/exp/exp_cost_model.c)
+target_link_libraries(exp_cost_model ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)

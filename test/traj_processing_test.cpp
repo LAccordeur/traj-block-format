@@ -22,10 +22,22 @@ TEST(traj_processing, sort) {
 
 }
 
+TEST(traj_processing, zcurve_sort) {
+    int array_size = 225 * 1024;
+    struct traj_point **points = allocate_points_memory(array_size);
+    FILE *fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
+
+    read_points_from_csv(fp, points, 0, array_size);
+    print_traj_points(points, array_size);
+    sort_traj_points_zcurve(points, array_size);
+    printf("\n\n");
+    print_traj_points(points, array_size);
+}
+
 TEST(traj_processing, split) {
     int points_num = 4;
     struct traj_point **points = allocate_points_memory(points_num);
-    FILE *fp = fopen("/home/yangguo/Data/DataSet/Trajectory/TaxiPorto/archive/porto_data_v2.csv", "r");
+    FILE *fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
 
     read_points_from_csv(fp, points, 0, points_num);
     struct seg_meta_pair_itr meta_pair_array;

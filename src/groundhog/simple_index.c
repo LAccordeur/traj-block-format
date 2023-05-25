@@ -52,7 +52,7 @@ void serialize_index_entry(struct index_entry *source, void *destination) {
     memcpy(d + TIME_MIN_OFFSET, &(source->time_min), TIME_MIN_SIZE);
     memcpy(d + TIME_MAX_OFFSET, &(source->time_max), TIME_MAX_SIZE);
     memcpy(d + BLOCK_LOGICAL_ADR_OFFSET, &(source->block_logical_adr), BLOCK_LOGICAL_ADR_SIZE);
-    memcpy(d + OID_ARRAY_SIZE_OFFSET, &(source->oid_array_size), OID_ARRAY_SIZE_OFFSET);
+    memcpy(d + OID_ARRAY_SIZE_OFFSET, &(source->oid_array_size), OID_ARRAY_SIZE_SIZE);
     memcpy(d + OID_ARRAY_OFFSET, source->oid_array, calculate_oid_array_space(source->oid_array_size));
 }
 

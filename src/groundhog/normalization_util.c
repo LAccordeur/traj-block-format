@@ -28,3 +28,22 @@ int normalize_latitude(double lat) {
         return (int)((lat - (-90)) * lat_normalizer);
     }
 }
+
+static long MaxMask = 0x1fffffL;
+static long split_z3(long value) {
+    long x = value & MaxMask;
+    x = (x | x << 32) & 0x1f00000000ffffL;
+    //System.out.println(CurveUtil.bytesToBit(CurveUtil.toBytes(x)));
+    x = (x | x << 16) & 0x1f0000ff0000ffL;
+    //System.out.println(CurveUtil.bytesToBit(CurveUtil.toBytes(x)));
+    x = (x | x << 8)  & 0x100f00f00f00f00fL;
+    //System.out.println(CurveUtil.bytesToBit(CurveUtil.toBytes(x)));
+    x = (x | x << 4)  & 0x10c30c30c30c30c3L;
+    //System.out.println(CurveUtil.bytesToBit(CurveUtil.toBytes(x)));
+    return (x | x << 2)      & 0x1249249249249249L;
+}
+
+long generate_zcurve_value(int x, int y, int z) {
+    long value = split_z3(z) | split_z3(y) << 1 | split_z3(x) << 2;
+    return value;
+}

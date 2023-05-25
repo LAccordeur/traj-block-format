@@ -9,6 +9,9 @@
 #include <stdlib.h>
 
 
+int
+loop(int result_count, const struct traj_point *points, const struct spatio_temporal_range_predicate *predicate, int i);
+
 static void ingest_and_flush_synthetic_data(int data_block_num) {
     init_and_mk_fs_for_traj(false);
 
@@ -60,11 +63,12 @@ void exp_computation() {
     srand(time(NULL));   // Initialization, should only be called once.
 
 
-    int record_num = 10000000;
+    int record_num = 29491190;
     int result_count = 0;
     struct traj_point *points = malloc(sizeof(struct traj_point) * record_num);
     for (int i = 0; i < record_num; i++) {
-        int random_value = rand() % record_num;
+        //int random_value = rand() % record_num;
+        int random_value = i;
         points[i].normalized_latitude = random_value;
         points[i].normalized_longitude = random_value;
         points[i].timestamp_sec = random_value;
@@ -72,7 +76,7 @@ void exp_computation() {
         //printf("value: %d\n", random_value);
     }
     struct spatio_temporal_range_predicate *predicate = malloc(sizeof(*predicate));
-    int predicate_value = 1000000*10;
+    int predicate_value = 2949119*10;
     predicate->lat_max = predicate_value;
     predicate->lat_min = 0;
     predicate->lon_max = predicate_value;
@@ -82,7 +86,7 @@ void exp_computation() {
 
     clock_t start, stop;
 
-    void* output_buffer = malloc(4096);
+    void* output_buffer = malloc(sizeof(struct traj_point) * record_num);
     struct traj_point* traj_output = output_buffer;
     //struct traj_point *point = &points[0];
     start = clock();
@@ -94,24 +98,76 @@ void exp_computation() {
             && predicate->lat_max >= point->normalized_latitude
             && predicate->time_min <= point->timestamp_sec
             && predicate->time_max >= point->timestamp_sec) {
+
+            traj_output[result_count].oid = point->oid;
+            traj_output[result_count].normalized_longitude = point->normalized_longitude;
+            traj_output[result_count].normalized_latitude = point->normalized_latitude;
+            traj_output[result_count].timestamp_sec = point->timestamp_sec;
             result_count++;
-            traj_output[0].oid = point->oid;
-            traj_output[0].normalized_longitude = point->normalized_longitude;
-            traj_output[0].normalized_latitude = point->normalized_latitude;
-            traj_output[0].timestamp_sec = point->timestamp_sec;
+
         }
 
-        /*if (predicate->lon_min <= point->normalized_longitude
-            && predicate->lon_max >= point->normalized_longitude
-            ) {
-            result_count++;
-        }*/
     }
     stop = clock();
+
+    printf("result count: %d, total computation time: %f\n", result_count, (double)(stop - start));
+}
+
+void exp_computation_host_cpu() {
+
+    srand(123);   // Initialization, should only be called once.
+
+
+    int record_num = 29491199;
+    int result_count = 0;
+    struct traj_point *points = malloc(sizeof(struct traj_point) * record_num);
+    for (int i = 0; i < record_num; i++) {
+        int random_value = rand() % record_num;
+        //int random_value = i;
+        points[i].normalized_latitude = random_value;
+        points[i].normalized_longitude = random_value;
+        points[i].timestamp_sec = random_value;
+        points[i].oid = random_value;
+        //printf("value: %d\n", random_value);
+    }
+    struct spatio_temporal_range_predicate *predicate = malloc(sizeof(*predicate));
+    int predicate_value = 2949119;
+    predicate->lat_max = predicate_value;
+    predicate->lat_min = 0;
+    predicate->lon_max = predicate_value;
+    predicate->lon_min = 0;
+    predicate->time_max = predicate_value;
+    predicate->time_min = 0;
+
+    clock_t start, stop;
+
+    void* output_buffer = malloc(sizeof(struct traj_point) * record_num);
+    struct traj_point* traj_output = output_buffer;
+    //struct traj_point *point = &points[0];
+    start = clock();
+    for (int k = 0; k < record_num; k++) {
+        struct traj_point *point = &points[k];
+        if (predicate->lon_min <= point->normalized_longitude
+            && predicate->lon_max >= point->normalized_longitude
+            && predicate->lat_min <= point->normalized_latitude
+            && predicate->lat_max >= point->normalized_latitude
+            && predicate->time_min <= point->timestamp_sec
+            && predicate->time_max >= point->timestamp_sec) {
+
+            traj_output[result_count] = *point;
+            /*char* dst = (char*)traj_output + result_count * 16;
+            memcpy(dst, (char*)point, 16);*/
+            result_count++;
+
+        }
+
+    }
+    stop = clock();
+
     printf("result count: %d, total computation time: %f\n", result_count, (double)(stop - start));
 }
 
 int main(void) {
-    exp_computation();
+    exp_computation_host_cpu();
     return 0;
 }

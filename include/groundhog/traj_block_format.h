@@ -5,6 +5,8 @@
 #ifndef TRAJ_BLOCK_FORMAT_TRAJ_BLOCK_FORMAT_H
 #define TRAJ_BLOCK_FORMAT_TRAJ_BLOCK_FORMAT_H
 
+#define MY_OID_FILTER_SIZE 16
+
 struct traj_point {
     int oid;
     int timestamp_sec;
@@ -21,6 +23,8 @@ struct seg_meta {
     int time_max;
     int seg_offset;
     int seg_size;
+    char oid_filter[MY_OID_FILTER_SIZE];
+    int oid_filter_size;
 };
 
 struct traj_block_header {
@@ -79,6 +83,8 @@ void free_tmp_seg_data(struct seg_meta_pair_itr *pair_array);
 int get_traj_point_size();
 
 int get_seg_meta_size();
+
+int get_header_size();
 
 void serialize_traj_point(struct traj_point* source, void* destination);
 

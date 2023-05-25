@@ -26,7 +26,6 @@ bool bit_vect_get(bit_vect *vect, size_t bit_idx);
 void bit_vect_set(bit_vect *vect, size_t bit_idx, bool val);
 void bit_vect_set1(bit_vect *vect, size_t bit_idx);
 void bit_vect_set0(bit_vect *vect, size_t bit_idx);
-void bit_vect_printf(FILE *f);
 
 #define BITUTIL_H
 #endif

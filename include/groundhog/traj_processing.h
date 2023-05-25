@@ -6,7 +6,19 @@
 #define TRAJ_BLOCK_FORMAT_TRAJ_PROCESSING_H
 #include "traj_block_format.h"
 
+/**
+ * according to timestamp
+ * @param points
+ * @param array_size
+ */
 void sort_traj_points(struct traj_point **points, int array_size);
+
+/**
+ * according to zcurve
+ * @param points
+ * @param array_size
+ */
+void sort_traj_points_zcurve(struct traj_point **points, int array_size);
 
 /**
  * deprecated

@@ -124,6 +124,19 @@ int generate_synthetic_points(struct traj_point **points, int row_offset, int ro
     }
 }
 
+int generate_synthetic_random_points(struct traj_point **points, int row_offset, int row_count, int max_value) {
+
+
+    for (int i = 0; i < row_count; i++) {
+        int value = rand() % max_value;
+        points[i]->oid = 12;
+        points[i]->normalized_longitude = value;
+        points[i]->normalized_latitude = value;
+        points[i]->timestamp_sec = value;
+
+    }
+}
+
 /*
 void convert_serialized_to_struct_traj(void *serialized_buffer, struct traj_point **points, int total_size) {
 

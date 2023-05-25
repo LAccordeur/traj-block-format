@@ -32,4 +32,6 @@ int read_points_from_csv(FILE *fp, struct traj_point **points, int row_offset, i
 
 int generate_synthetic_points(struct traj_point **points, int row_offset, int row_count);
 
+int generate_synthetic_random_points(struct traj_point **points, int row_offset, int row_count, int max_value);
+
 #endif //TRAJ_BLOCK_FORMAT_PORTO_DATASET_READER_H

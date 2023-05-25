@@ -9,7 +9,7 @@
 #include "groundhog/query_workload_reader.h"
 #include "time.h"
 
-static bool enable_host_index = false;
+static bool enable_host_index = true;
 
 static void ingest_and_flush_porto_data(int data_block_num) {
     init_and_mk_fs_for_traj(false);
@@ -24,6 +24,32 @@ static void ingest_and_flush_porto_data(int data_block_num) {
     struct my_file meta_file = {NULL, SEG_META_FILENAME, "w", SPDK_FS_MODE};
     init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
     ingest_and_flush_data_via_time_partition(&query_engine, data_fp, data_block_num);
+
+    // print temporal meta information for each block
+    struct index_entry_storage *index_storage = &query_engine.index_storage;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
+    }
+
+    // save filesystem meta
+    spdk_flush_static_fs_meta_for_traj();
+
+}
+
+static void ingest_and_flush_porto_data_zcurve(int data_block_num) {
+    init_and_mk_fs_for_traj(false);
+
+    //int data_block_num = 1024;
+
+    FILE *data_fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
+    // ingest data
+    struct simple_query_engine query_engine;
+    struct my_file data_file = {NULL, DATA_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file index_file = {NULL, INDEX_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file meta_file = {NULL, SEG_META_FILENAME, "w", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+    ingest_and_flush_data_via_zcurve_partition(&query_engine, data_fp, data_block_num);
 
     // print temporal meta information for each block
     struct index_entry_storage *index_storage = &query_engine.index_storage;
@@ -75,7 +101,7 @@ static void exp_native_spatio_temporal_host(struct spatio_temporal_range_predica
     rebuild_query_engine_from_file(&rebuild_engine);
     clock_t start, end;
     start = clock();
-    int engine_result = spatio_temporal_query_without_pushdown(&rebuild_engine, predicate, false);
+    int engine_result = spatio_temporal_query_without_pushdown(&rebuild_engine, predicate, enable_host_index);
     end = clock();
     printf("[host] query time (including index lookup): %f\n", (double )(end - start));
     printf("engine result: %d\n", engine_result);
@@ -290,11 +316,14 @@ static void exp_native_id_temporal_host_v1(struct id_temporal_predicate *predica
 static void run_on_porto_data() {
     //ingest_and_flush_data();
     //struct spatio_temporal_range_predicate predicate = {0, 2147483647, 0, 2147483647, 1372636853, 1372757330};
-    struct spatio_temporal_range_predicate predicate = {7983124, 8000193, 12214847, 12221445, 0, 1380292968};
+    struct spatio_temporal_range_predicate predicate = {7983124, 8100193, 12214847, 12220845, 0, 1386524941};
 
     clock_t start, end;
     start = clock();
-    exp_native_spatio_temporal_host(&predicate);
+    //exp_native_spatio_temporal_host(&predicate);
+    //exp_native_spatio_temporal_armcpu_full_pushdown(&predicate);
+    exp_native_spatio_temporal_fpga_full_pushdown(&predicate);
+    //exp_native_spatio_temporal_adaptive_pushdown(&predicate);
     end = clock();
     printf("total time: %f\n",(double)(end-start));
 }
@@ -369,10 +398,10 @@ static void run_on_synthetic_data() {
 
     clock_t start, end;
     start = clock();
-    exp_native_spatio_temporal_host(&predicate);
+    //exp_native_spatio_temporal_host(&predicate);
     //exp_native_spatio_temporal_adaptive_pushdown(&predicate);
     //exp_native_spatio_temporal_armcpu_full_pushdown(&predicate);
-    //exp_native_spatio_temporal_fpga_full_pushdown(&predicate);
+    exp_native_spatio_temporal_fpga_full_pushdown(&predicate);
     end = clock();
     printf("total time: %f\n",(double)(end-start));
     printf("---------------------------------\n");
@@ -588,13 +617,13 @@ static void run_on_synthetic_data_batch() {
 }
 
 static void run_on_synthetic_data_id() {
-    struct id_temporal_predicate predicate = {12, 0, 2949119*0};
+    struct id_temporal_predicate predicate = {12, 0, 2949119*1};
 
 
     clock_t start, end;
     start = clock();
-    exp_native_id_temporal_host(&predicate);
-    //exp_native_id_temporal_fpga_full_pushdown(&predicate);
+    //exp_native_id_temporal_host(&predicate);
+    exp_native_id_temporal_fpga_full_pushdown(&predicate);
     //exp_native_id_temporal_armcpu_full_pushdown(&predicate);
     end = clock();
     printf("total time: %f\n",(double)(end-start));
@@ -726,12 +755,13 @@ int main(void) {
     // block pointer: [1048575], time min: 235929375, time max: 235929599
     // 4G: 1048576  2G: 524288  1G: 262144  512MB: 131072   256MB: 65536    128MB:32768
     //ingest_and_flush_synthetic_data(131072);
-    run_on_synthetic_data();
+    //run_on_synthetic_data();
     //run_on_synthetic_data_batch();
     //run_on_synthetic_data_batch();
-    //ingest_and_flush_porto_data(65536);
+    //ingest_and_flush_porto_data(131072);
 
-    //run_on_porto_data();
+    //ingest_and_flush_porto_data_zcurve(131072);
+    run_on_porto_data();
 
 
 

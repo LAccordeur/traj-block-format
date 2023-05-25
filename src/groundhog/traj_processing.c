@@ -4,6 +4,7 @@
 #include "groundhog/traj_processing.h"
 #include <stdlib.h>
 #include "groundhog/traj_block_format.h"
+#include "groundhog/normalization_util.h"
 #include <stdio.h>
 
 static int compare_pointed_to_data(const void *a, const void *b) {
@@ -19,8 +20,26 @@ static int compare_pointed_to_data(const void *a, const void *b) {
     }
 }
 
+/**
+ * sort struct traj_point **  according to zcurve value
+ * @param a
+ * @param b
+ * @return
+ */
+static int cmp_zcurve(const void *a, const void *b) {
+    struct traj_point *point_a = *(struct traj_point **)a;
+    struct traj_point *point_b = *(struct traj_point **)b;
+    long zcurve_a = generate_zcurve_value(point_a->normalized_longitude, point_a->normalized_latitude, point_a->timestamp_sec / 60);
+    long zcurve_b = generate_zcurve_value(point_b->normalized_longitude, point_b->normalized_latitude, point_b->timestamp_sec/ 60);
+    return zcurve_a > zcurve_b ? 1 : -1;
+}
+
 void sort_traj_points(struct traj_point **points, int array_size) {
     qsort(points, array_size, sizeof(struct traj_point*), compare_pointed_to_data);
+}
+
+void sort_traj_points_zcurve(struct traj_point **points, int array_size) {
+    qsort(points, array_size, sizeof(struct traj_point*), cmp_zcurve);
 }
 
 int split_traj_points_via_point_num(struct traj_point **points, int points_num, int segment_size, struct seg_meta_pair_itr *pair_array, int array_size) {

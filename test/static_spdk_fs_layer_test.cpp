@@ -2,6 +2,7 @@
 // Created by yangguo on 23-1-3.
 //
 #include "gtest/gtest.h"
+#include "groundhog/config.h"
 
 extern "C" {
 #include "groundhog/static_spdk_fs_layer.h"
@@ -295,13 +296,17 @@ TEST(spdk_fs, traj_fs_rebuild) {
     struct spdk_static_file_desc *data_file = spdk_static_fs_fopen(DATA_FILENAME, &spdk_static_fs_layer_for_traj);
 
 
-    int block_num = 5;
+    int block_num = 256;
     int traj_block_size = 4096;
     char my_buffer[traj_block_size];
 
     for (int i = 0; i < block_num; i++) {
+        int offset = TRAJ_BLOCK_SIZE * 256 + i * TRAJ_BLOCK_SIZE;
+        spdk_static_fs_fseek(data_file, offset);
+
         int read_size = spdk_static_fs_fread(my_buffer, traj_block_size, data_file);
-        printf("read id: %d; read size: %d\n", i, read_size);
+        int *int_ptr = (int *) my_buffer;
+        printf("read id: %d; read size: %d; first int: %d\n", i, read_size, int_ptr[0]);
     }
     print_spdk_static_fs_meta(&spdk_static_fs_layer_for_traj);
 

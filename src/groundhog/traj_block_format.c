@@ -57,6 +57,10 @@ int get_seg_meta_size() {
     return SEG_META_SIZE;
 }
 
+int get_header_size() {
+    return HEADER_SIZE;
+}
+
 void serialize_traj_point(struct traj_point* source, void* destination) {
     char *d = destination;
     memcpy(d + OID_OFFSET, &(source->oid), OID_SIZE);
@@ -251,8 +255,8 @@ int assemble_traj_block(struct seg_meta_pair_itr *pair_array, void* block, int b
 }
 
 void do_self_contained_traj_block(struct traj_point **points, int points_num, void* block, int block_size) {
-    // sort and split trajectories
-    sort_traj_points(points, points_num);
+    // split trajectories
+    //sort_traj_points(points, points_num);
 
     int meta_pair_array_size = SPLIT_SEGMENT_NUM;
     struct seg_meta_pair_itr meta_pair_array;
