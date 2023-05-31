@@ -107,20 +107,39 @@ void fetch_continuous_traj_data_block(struct traj_storage *storage, int block_lo
             } while (remaining_block_num > 0);
         }
     }
-    for (int i =0; i < block_num; i++) {
-        char* offset = destination + i * TRAJ_BLOCK_SIZE;
-        int* int_ptr = (int*) offset;
-        //printf("%d\n", int_ptr[0]);
-        struct traj_block_header block_header;
-        parse_traj_block_for_header(offset, &block_header);
 
-        //printf("segment count: %d\n", block_header.seg_count);
+}
+
+void fetch_continuous_traj_data_block_spdk_batch(int batch_size, struct traj_storage *storage, int *block_logical_pointer_start, int *block_num, void **destination) {
+    int fs_mode = storage->my_fp->fs_mode;
+    struct my_file *my_fp = storage->my_fp;
+
+
+    if (fs_mode == SPDK_FS_MODE) {
+
+        int logical_sector_start[batch_size];
+        size_t size_vec[batch_size];
+        for (int i = 0; i < batch_size; i++) {
+            logical_sector_start[i] = block_logical_pointer_start[i] * TRAJ_BLOCK_SIZE / SECTOR_SIZE;
+            size_vec[i] = block_num[i] * TRAJ_BLOCK_SIZE;
+        }
+
+        my_fread_spdk_batch(batch_size, destination, logical_sector_start, size_vec, my_fp);
+
+    } else {
+        printf("only support for SPDK mode\n");
     }
+
 }
 
 void do_isp_for_trajectory_data(struct traj_storage *storage, void* result_buffer, size_t estimated_result_size, struct isp_descriptor *isp_desc, int accelerator_type) {
     struct my_file *my_fp = storage->my_fp;
     my_fread_isp(result_buffer, estimated_result_size, my_fp, isp_desc, accelerator_type);
+}
+
+void do_isp_for_trajectory_data_batch(int batch_size, struct traj_storage *storage, void** result_buffer, size_t *estimated_result_size, struct isp_descriptor **isp_desc, int accelerator_type) {
+    struct my_file *my_fp = storage->my_fp;
+    my_fread_isp_batch(batch_size, result_buffer, estimated_result_size, my_fp, isp_desc, accelerator_type);
 }
 
 void free_traj_storage(struct traj_storage *storage) {

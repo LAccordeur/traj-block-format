@@ -92,6 +92,8 @@ size_t spdk_static_fs_fwrite(const void *data_ptr, size_t size, struct spdk_stat
 
 size_t spdk_static_fs_fread(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc);
 
+size_t spdk_static_fs_fread_batch(int batch_size, const void **data_ptr_vec, const int *logical_sector_start, const size_t *size_vec, struct spdk_static_file_desc *file_desc);
+
 /**
  *
  * @param data_ptr
@@ -103,6 +105,11 @@ size_t spdk_static_fs_fread(const void *data_ptr, size_t size, struct spdk_stati
 size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc, struct isp_descriptor *isp_desc);
 
 size_t spdk_static_fs_fread_isp_fpga(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc, struct isp_descriptor *isp_desc);
+
+
+size_t spdk_static_fs_fread_isp_batch(int batch_size, const void **data_ptr_vec, const size_t *size_vec, struct spdk_static_file_desc *file_desc, struct isp_descriptor **isp_desc_vec);
+
+size_t spdk_static_fs_fread_isp_fpga_batch(int batch_size, const void **data_ptr_vec, const size_t *size_vec, struct spdk_static_file_desc *file_desc, struct isp_descriptor **isp_desc_vec);
 
 size_t spdk_static_fs_fseek(struct spdk_static_file_desc *file_desc, long long offset);
 

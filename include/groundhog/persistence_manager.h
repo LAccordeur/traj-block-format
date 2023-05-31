@@ -26,7 +26,20 @@ size_t my_fwrite(const void *ptr, size_t size, size_t nmemb, struct my_file *str
 
 size_t my_fread(void *ptr, size_t size, size_t nmemb, struct my_file *stream, int fs_mode);
 
+/**
+ * only used for our csd (accessed via spdk)
+ * @param batch_size
+ * @param data_ptr_vec
+ * @param logical_sector_start
+ * @param size_vec unit is byte
+ * @param stream
+ * @return
+ */
+size_t my_fread_spdk_batch(int batch_size, void **data_ptr_vec, const int *logical_sector_start, const size_t *size_vec, struct my_file *stream);
+
 size_t my_fread_isp(void *ptr, size_t estimated_result_size, struct my_file *stream, struct isp_descriptor *isp_desc, int accelerator_type);
+
+size_t my_fread_isp_batch(int batch_size, void **ptr, size_t *estimated_result_size, struct my_file *stream, struct isp_descriptor **isp_desc, int accelerator_type);
 
 size_t my_fseek(struct my_file *stream, long long offset, int fs_mode);
 

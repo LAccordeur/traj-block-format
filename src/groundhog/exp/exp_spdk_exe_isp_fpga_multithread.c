@@ -329,7 +329,7 @@ hello_world(void)
         int total_count = 0;
 
         int lon_min = 0;
-        int lon_max = 962;
+        int lon_max = 9625;
         int lat_min = 0;
         int lat_max = 962559;
         int time_min = 0;
@@ -339,7 +339,7 @@ hello_world(void)
         int oid = 0;
         struct id_temporal_predicate synthetic_id_predicate = {.oid = oid, .time_min = time_min, .time_max = time_max};
 
-        int request_num = 32;
+        int request_num = 256;
         struct hello_world_sequence sequence_arr[request_num];
         size_t sz_arr[request_num];
 
@@ -348,11 +348,11 @@ hello_world(void)
 
             int lba_vec_size = 3;
             struct lba lba_vec[lba_vec_size];
-            lba_vec[0].start_lba = 0 + i * 256;
+            lba_vec[0].start_lba = 1 + i * 256;
             lba_vec[0].sector_count = 100;
-            lba_vec[1].start_lba = 100 + i * 256;
+            lba_vec[1].start_lba = 101 + i * 256;
             lba_vec[1].sector_count = 100;
-            lba_vec[2].start_lba = 200 + i * 256;
+            lba_vec[2].start_lba = 201 + i * 256;
             lba_vec[2].sector_count = 56;
             init_sequence(&sequence_arr[i], read_block_size, estimated_result_block_num, 1, ns_entry, &sz_arr[i],
                                   &synthetic_id_predicate, &synthetic_range_predicate, is_id_temporal_query, lba_vec, lba_vec_size);
@@ -376,8 +376,12 @@ hello_world(void)
         }
         clock_t end = clock();
 
+        for (int n = 0; n < request_num; n++) {
+            total_count += sequence_arr[n].points_num;
+        }
         double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
         printf("read operation time: %f\n", time_spent);
+        printf("total result count: %d\n", total_count);
 
         /*
          * Free the I/O qpair.  This typically is done when an application exits.

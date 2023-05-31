@@ -45,7 +45,11 @@ void fetch_traj_data_via_logical_pointer(struct traj_storage *storage, int logic
  */
 void fetch_continuous_traj_data_block(struct traj_storage *storage, int block_logical_pointer_start, int block_num, void* destination);
 
+void fetch_continuous_traj_data_block_spdk_batch(int batch_size, struct traj_storage *storage, int *block_logical_pointer_start, int *block_num, void **destination);
+
 void do_isp_for_trajectory_data(struct traj_storage *storage, void* result_buffer, size_t estimated_result_size, struct isp_descriptor *isp_desc, int accelerator_type);
+
+void do_isp_for_trajectory_data_batch(int batch_size, struct traj_storage *storage, void** result_buffer, size_t *estimated_result_size, struct isp_descriptor **isp_desc, int accelerator_type);
 
 void flush_traj_storage(struct traj_storage *storage);
 
