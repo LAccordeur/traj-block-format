@@ -132,6 +132,34 @@ void fetch_continuous_traj_data_block_spdk_batch(int batch_size, struct traj_sto
 
 }
 
+void do_isp_for_trajectory_data_without_comp(struct traj_storage *storage, void* result_buffer, size_t result_size, struct isp_descriptor *isp_desc) {
+    int fs_mode = storage->my_fp->fs_mode;
+    if (fs_mode == SPDK_FS_MODE) {
+        my_fread_spdk_multi_addr(result_buffer, result_size, storage->my_fp, isp_desc);
+    } else {
+        printf("only support for SPDK mode\n");
+    }
+}
+
+void do_isp_for_trajectory_data_without_comp_batch(int batch_size, struct traj_storage *storage, void** result_buffer, size_t *result_size, struct isp_descriptor **isp_desc) {
+    int fs_mode = storage->my_fp->fs_mode;
+    if (fs_mode == SPDK_FS_MODE) {
+        my_fread_spdk_multi_addr_batch(batch_size, result_buffer, result_size, storage->my_fp, isp_desc);
+    } else {
+        printf("only support for SPDK mode\n");
+    }
+}
+
+
+void do_isp_for_trajectory_data_hybrid_comp_batch(int batch_size, struct traj_storage *storage, void** result_buffer, size_t *result_size, struct isp_descriptor **isp_desc) {
+    int fs_mode = storage->my_fp->fs_mode;
+    if (fs_mode == SPDK_FS_MODE) {
+        my_fread_spdk_multi_addr_batch(batch_size, result_buffer, result_size, storage->my_fp, isp_desc);
+    } else {
+        printf("only support for SPDK mode\n");
+    }
+}
+
 void do_isp_for_trajectory_data(struct traj_storage *storage, void* result_buffer, size_t estimated_result_size, struct isp_descriptor *isp_desc, int accelerator_type) {
     struct my_file *my_fp = storage->my_fp;
     my_fread_isp(result_buffer, estimated_result_size, my_fp, isp_desc, accelerator_type);

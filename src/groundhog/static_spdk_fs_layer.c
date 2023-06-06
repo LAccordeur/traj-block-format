@@ -50,7 +50,7 @@ void init_and_mk_fs_for_traj(bool is_flushed) {
 
 void spdk_flush_static_fs_meta_for_traj() {
     spdk_flush_static_fs_meta(&spdk_static_fs_layer_for_traj);
-    //cleanup_spdk_nvme_driver(&spdk_driver_desc);
+    cleanup_spdk_nvme_driver(&spdk_driver_desc);
 }
 
 void print_spdk_static_fs_meta_for_traj() {
@@ -122,7 +122,15 @@ static void read_complete(void *arg, const struct spdk_nvme_cpl *completion) {
         exit(1);
     }
 
+    /*for (int i = 0; i < 3; i++) {
+        void *tmp_buf = malloc(sequence->application_read_buf_size);
+        memcpy(tmp_buf, sequence->buf, sequence->application_read_buf_size);
+        memcpy(sequence->application_read_buf, tmp_buf, sequence->application_read_buf_size);
+        free(tmp_buf);
+    }*/
+
     memcpy(sequence->application_read_buf, sequence->buf, sequence->application_read_buf_size);
+
 
     spdk_free(sequence->buf);
 
@@ -579,6 +587,72 @@ size_t spdk_static_fs_fread_batch(int batch_size, const void **data_ptr_vec, con
 
 }
 
+size_t spdk_static_fs_fread_multi_addr(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc, struct isp_descriptor *isp_desc) {
+
+    // check the number of sector (should be less than or equal to 256)
+    int total_sector_count = 0;
+    for (int i = 0; i < isp_desc->lba_count; i++) {
+        total_sector_count += isp_desc->lba_array[i].sector_count;
+    }
+    if (total_sector_count > MAX_TRANSFER_SECTOR_COUNT) {
+        fprintf(stderr, "[spdk_fs_isp] too much sector read in one operation\n");
+        exit(-1);
+    }
+
+    struct ns_entry *ns_entry = file_desc->fs_desc->driver_desc->ns_entry;
+    struct callback_sequence sequence;
+    sequence.is_completed = 0;
+    sequence.ns_entry = ns_entry;
+
+    size_t spdk_buffer_size = size;
+    if (size % 0x1000 != 0) {
+        spdk_buffer_size = ((size / 0x1000) + 1) * 0x1000;
+    }
+    char *spdk_buffer_ptr = spdk_zmalloc(spdk_buffer_size, 0x1000, NULL, SPDK_ENV_SOCKET_ID_ANY, SPDK_MALLOC_DMA);
+    if (spdk_buffer_ptr == NULL) {
+        printf("ERROR: spdk write buffer allocation failed\n");
+        return -1;
+    }
+    memset(spdk_buffer_ptr, 0, size);
+    sequence.buf = spdk_buffer_ptr;
+    sequence.application_read_buf = (char*)data_ptr;
+    sequence.application_read_buf_size = size;
+
+    int rc;
+    int lba_start = file_desc->start_lba + file_desc->current_read_offset;
+    int sector_count;
+    if (size % SECTOR_SIZE == 0) {
+        sector_count = size / SECTOR_SIZE;
+    } else {
+        sector_count = size / SECTOR_SIZE + 1;
+    }
+
+
+    int desc_size = calculate_isp_descriptor_space(isp_desc);
+    if (desc_size >= 4096) {
+        printf("the descriptor size is too big\n");
+    }
+    serialize_isp_descriptor(isp_desc, sequence.buf);
+
+    // lba_start and sector_count are not actually used in SSD
+    rc = spdk_nvme_ns_cmd_exe_multi(ns_entry->ns, ns_entry->qpair, sequence.buf,
+                                         lba_start,
+                                         sector_count,
+                                         read_complete, (void*)&sequence, 0);
+
+    if (rc != 0) {
+        fprintf(stderr, "starting read I/O failed\n");
+    }
+
+    /* poll for completions */
+    while (!sequence.is_completed) {
+        spdk_nvme_qpair_process_completions(ns_entry->qpair, 1);
+    }
+
+
+    return sector_count * SECTOR_SIZE;
+}
+
 
 size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc, struct isp_descriptor *isp_desc) {
 
@@ -721,6 +795,163 @@ static bool has_unfinished_requests(struct callback_sequence *sequence_arr, int 
     return result;
 }
 
+
+size_t spdk_static_fs_fread_multi_addr_batch(int batch_size, const void **data_ptr_vec, const size_t *size_vec, struct spdk_static_file_desc *file_desc, struct isp_descriptor **isp_desc_vec) {
+
+    // check the number of sector (should be less than or equal to 256)
+
+    for (int i = 0; i < batch_size; i++) {
+        struct isp_descriptor *isp_desc = isp_desc_vec[i];
+        unsigned int total_sector_count = 0;
+        for (int j = 0; j < isp_desc->lba_count; j++) {
+            total_sector_count += isp_desc->lba_array[j].sector_count;
+        }
+        if (total_sector_count > MAX_TRANSFER_SECTOR_COUNT) {
+            fprintf(stderr, "[spdk_fs_isp] too much sector read in one operation\n");
+            exit(-1);
+        }
+    }
+
+    struct ns_entry *ns_entry = file_desc->fs_desc->driver_desc->ns_entry;
+
+    int total_sector_count = 0;
+    struct callback_sequence sequences[batch_size];
+    for (int i = 0; i < batch_size; i++) {
+        sequences[i].is_completed = 0;
+        sequences[i].ns_entry = ns_entry;
+
+        int size = size_vec[i];
+        size_t spdk_buffer_size = size;
+        if (size % 0x1000 != 0) {
+            spdk_buffer_size = ((size / 0x1000) + 1) * 0x1000;
+        }
+        char *spdk_buffer_ptr = spdk_zmalloc(spdk_buffer_size, 0x1000, NULL, SPDK_ENV_SOCKET_ID_ANY, SPDK_MALLOC_DMA);
+        if (spdk_buffer_ptr == NULL) {
+            printf("ERROR: spdk write buffer allocation failed\n");
+            return -1;
+        }
+        memset(spdk_buffer_ptr, 0, size);
+        sequences[i].buf = spdk_buffer_ptr;
+        sequences[i].application_read_buf = (char*)data_ptr_vec[i];
+        sequences[i].application_read_buf_size = size;
+
+        int rc;
+        int lba_start = file_desc->start_lba + file_desc->current_read_offset;
+        int sector_count;
+        if (size % SECTOR_SIZE == 0) {
+            sector_count = size / SECTOR_SIZE;
+        } else {
+            sector_count = size / SECTOR_SIZE + 1;
+        }
+        total_sector_count += sector_count;
+
+        int desc_size = calculate_isp_descriptor_space(isp_desc_vec[i]);
+        if (desc_size >= 4096) {
+            printf("the descriptor size is too big\n");
+        }
+        serialize_isp_descriptor(isp_desc_vec[i], sequences[i].buf);
+
+        // lba_start and sector_count are not actually used in SSD
+        rc = spdk_nvme_ns_cmd_exe_multi(ns_entry->ns, ns_entry->qpair, sequences[i].buf,
+                                        lba_start,
+                                        sector_count,
+                                        read_complete, (void*)&sequences[i], 0);
+
+        if (rc != 0) {
+            fprintf(stderr, "starting read I/O failed\n");
+        }
+
+    }
+
+
+
+    /* poll for completions */
+    while (has_unfinished_requests(sequences, batch_size)) {
+        spdk_nvme_qpair_process_completions(ns_entry->qpair, 0);
+    }
+
+
+    return total_sector_count * SECTOR_SIZE;
+}
+
+size_t spdk_static_fs_fread_hybrid_comp_batch(struct spdk_static_file_desc *file_desc, int host_batch_size, const void **host_data_ptr_vec, const size_t *host_size_vec, struct isp_descriptor **host_isp_desc_vec,
+                                              int pushdown_batch_size, const void **pushdown_data_ptr_vec, const size_t *pushdown_size_vec, struct isp_descriptor **pushdown_isp_desc_vec) {
+
+    // check the number of sector (should be less than or equal to 256)
+
+    for (int i = 0; i < host_batch_size; i++) {
+        struct isp_descriptor *isp_desc = host_isp_desc_vec[i];
+        unsigned int total_sector_count = 0;
+        for (int j = 0; j < isp_desc->lba_count; j++) {
+            total_sector_count += isp_desc->lba_array[j].sector_count;
+        }
+        if (total_sector_count > MAX_TRANSFER_SECTOR_COUNT) {
+            fprintf(stderr, "[spdk_fs_isp] too much sector read in one operation\n");
+            exit(-1);
+        }
+    }
+
+    struct ns_entry *ns_entry = file_desc->fs_desc->driver_desc->ns_entry;
+
+    int total_sector_count = 0;
+    struct callback_sequence sequences[host_batch_size];
+    for (int i = 0; i < host_batch_size; i++) {
+        sequences[i].is_completed = 0;
+        sequences[i].ns_entry = ns_entry;
+
+        int size = host_size_vec[i];
+        size_t spdk_buffer_size = size;
+        if (size % 0x1000 != 0) {
+            spdk_buffer_size = ((size / 0x1000) + 1) * 0x1000;
+        }
+        char *spdk_buffer_ptr = spdk_zmalloc(spdk_buffer_size, 0x1000, NULL, SPDK_ENV_SOCKET_ID_ANY, SPDK_MALLOC_DMA);
+        if (spdk_buffer_ptr == NULL) {
+            printf("ERROR: spdk write buffer allocation failed\n");
+            return -1;
+        }
+        memset(spdk_buffer_ptr, 0, size);
+        sequences[i].buf = spdk_buffer_ptr;
+        sequences[i].application_read_buf = (char*)host_data_ptr_vec[i];
+        sequences[i].application_read_buf_size = size;
+
+        int rc;
+        int lba_start = file_desc->start_lba + file_desc->current_read_offset;
+        int sector_count;
+        if (size % SECTOR_SIZE == 0) {
+            sector_count = size / SECTOR_SIZE;
+        } else {
+            sector_count = size / SECTOR_SIZE + 1;
+        }
+        total_sector_count += sector_count;
+
+        int desc_size = calculate_isp_descriptor_space(host_isp_desc_vec[i]);
+        if (desc_size >= 4096) {
+            printf("the descriptor size is too big\n");
+        }
+        serialize_isp_descriptor(host_isp_desc_vec[i], sequences[i].buf);
+
+        // lba_start and sector_count are not actually used in SSD
+        rc = spdk_nvme_ns_cmd_exe_multi(ns_entry->ns, ns_entry->qpair, sequences[i].buf,
+                                        lba_start,
+                                        sector_count,
+                                        read_complete, (void*)&sequences[i], 0);
+
+        if (rc != 0) {
+            fprintf(stderr, "starting read I/O failed\n");
+        }
+
+    }
+
+
+
+    /* poll for completions */
+    while (has_unfinished_requests(sequences, host_batch_size)) {
+        spdk_nvme_qpair_process_completions(ns_entry->qpair, 0);
+    }
+
+
+    return total_sector_count * SECTOR_SIZE;
+}
 
 
 

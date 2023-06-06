@@ -103,7 +103,7 @@ static void exp_native_spatio_temporal_host(struct spatio_temporal_range_predica
     start = clock();
     int engine_result = spatio_temporal_query_without_pushdown(&rebuild_engine, predicate, enable_host_index);
     end = clock();
-    printf("[host] query time (including index lookup): %f\n", (double )(end - start));
+    printf("[host] query time (total): %f\n", (double )(end - start));
     printf("engine result: %d\n", engine_result);
 
     free_query_engine(&rebuild_engine);
@@ -170,7 +170,7 @@ static void exp_native_spatio_temporal_armcpu_full_pushdown(struct spatio_tempor
     start = clock();
     int engine_result = spatio_temporal_query_with_full_pushdown(&rebuild_engine, predicate, enable_host_index);
     end = clock();
-    printf("[isp cpu] query time (including index lookup): %f\n", (double )(end - start));
+    printf("[isp cpu] query time (total): %f\n", (double )(end - start));
     printf("[isp cpu] engine result: %d\n", engine_result);
     free_query_engine(&rebuild_engine);
 
@@ -237,7 +237,7 @@ static void exp_native_spatio_temporal_fpga_full_pushdown(struct spatio_temporal
     start = clock();
     int engine_result = spatio_temporal_query_with_full_pushdown_fpga(&rebuild_engine, predicate, enable_host_index);
     end = clock();
-    printf("[isp fpga] query time (includin index lookup): %f\n", (double )(end - start));
+    printf("[isp fpga] query time (total): %f\n", (double )(end - start));
     printf("[isp fpga] engine result: %d\n", engine_result);
     free_query_engine(&rebuild_engine);
 }
@@ -305,8 +305,8 @@ static void exp_native_spatio_temporal_armcpu_full_pushdown_batch(struct spatio_
     start = clock();
     int engine_result = spatio_temporal_query_with_full_pushdown_batch(&rebuild_engine, predicate, enable_host_index);
     end = clock();
-    printf("[isp fpga] query time (includin index lookup): %f\n", (double )(end - start));
-    printf("[isp fpga] engine result: %d\n", engine_result);
+    printf("[isp cpu batch] query time (total): %f\n", (double )(end - start));
+    printf("[isp cpu batch] engine result: %d\n", engine_result);
     free_query_engine(&rebuild_engine);
 }
 
@@ -348,7 +348,7 @@ static void exp_native_id_temporal_armcpu_full_pushdown_batch(struct id_temporal
     start = clock();
     int engine_result = id_temporal_query_with_full_pushdown_batch(&rebuild_engine, predicate, enable_host_index);
     end = clock();
-    printf("[isp cpu batch] query time (including index lookup): %f\n", (double )(end - start));
+    printf("[isp cpu batch] query time (total): %f\n", (double )(end - start));
     printf("[isp cpu batch] engine result: %d\n", engine_result);
     free_query_engine(&rebuild_engine);
 
@@ -372,8 +372,52 @@ static void exp_native_spatio_temporal_adaptive_pushdown(struct spatio_temporal_
     start = clock();
     int engine_result = spatio_temporal_query_with_adaptive_pushdown(&rebuild_engine, predicate, enable_host_index);
     end = clock();
+    printf("[isp adaptive fpga] query time (total): %f\n", (double )(end - start));
+    printf("[isp adaptive fpga] engine result: %d\n", engine_result);
+    free_query_engine(&rebuild_engine);
+}
+
+static void exp_native_spatio_temporal_adaptive_pushdown_batch(struct spatio_temporal_range_predicate *predicate) {
+
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+    clock_t start, end;
+    start = clock();
+    int engine_result = spatio_temporal_query_with_adaptive_pushdown_batch(&rebuild_engine, predicate, enable_host_index);
+    end = clock();
     printf("[isp adaptive fpga] query time (includin index lookup): %f\n", (double )(end - start));
     printf("[isp adaptive fpga] engine result: %d\n", engine_result);
+    free_query_engine(&rebuild_engine);
+}
+
+static void exp_native_spatio_temporal_host_device_parallel_batch(struct spatio_temporal_range_predicate *predicate) {
+
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+    clock_t start, end;
+    start = clock();
+    int engine_result = spatio_temporal_query_with_host_device_parallel_batch(&rebuild_engine, predicate, enable_host_index);
+    end = clock();
+    printf("[isp host & device parallel] query time (includin index lookup): %f\n", (double )(end - start));
+    printf("[isp host & device parallel] engine result: %d\n", engine_result);
     free_query_engine(&rebuild_engine);
 }
 
@@ -467,14 +511,16 @@ static void run_on_porto_data() {
 static void run_on_porto_data_multithread() {
     //ingest_and_flush_data();
     //struct spatio_temporal_range_predicate predicate = {0, 2147483647, 0, 2147483647, 1372636853, 1372757330};
-    struct spatio_temporal_range_predicate predicate = {7983124, 8100193, 12214847, 12220845, 0, 1386524941};
+    //struct spatio_temporal_range_predicate predicate = {7983124, 8100193, 12214847, 12220845, 0, 1386524941};
+    struct spatio_temporal_range_predicate predicate = {7983124, 8000193, 12214847, 12220845, 0, 1386524941};
 
     clock_t start, end;
     start = clock();
-    //exp_native_spatio_temporal_host(&predicate);
-    //exp_native_spatio_temporal_armcpu_full_pushdown(&predicate);
-    exp_native_spatio_temporal_fpga_full_pushdown_batch(&predicate);
-    //exp_native_spatio_temporal_adaptive_pushdown(&predicate);
+    //exp_native_spatio_temporal_host_batch(&predicate);
+    //exp_native_spatio_temporal_armcpu_full_pushdown_batch(&predicate);
+    //exp_native_spatio_temporal_fpga_full_pushdown_batch(&predicate);
+    //exp_native_spatio_temporal_adaptive_pushdown_batch(&predicate);
+    exp_native_spatio_temporal_host_device_parallel_batch(&predicate);
     end = clock();
     printf("total time: %f\n",(double)(end-start));
 }
@@ -559,84 +605,20 @@ static void run_on_synthetic_data() {
 }
 
 static void run_on_synthetic_data_multithread() {
-    //ingest_and_flush_synthetic_data(4096);
 
-    // predicate for 512 MB data
-    // 1 blocks
-    //struct spatio_temporal_range_predicate predicate = {30801685, 30801919, 30801685, 30801919, 30801685, 30801919};
-
-    // 13 blocks
-    //struct spatio_temporal_range_predicate predicate = {30798877, 30801919, 30798877, 30801919, 30798877, 30801919};
-
-    // 131 blocks
-    //struct spatio_temporal_range_predicate predicate = {30771134, 30801919, 30771134, 30801919, 30771134, 30801919};
-
-    // 1310 blocks
-    //struct spatio_temporal_range_predicate predicate = {30494069, 30801919, 30494069, 30801919, 30494069, 30801919};
-
-    // 13107 blocks
-    //struct spatio_temporal_range_predicate predicate = {27751774, 30801919, 27751774, 30801919, 27751774, 30801919};
-
-    // 26214 blocks
-    //struct spatio_temporal_range_predicate predicate = {24641629, 30801919, 24641629, 30801919, 24641629, 30801919};
-
-    // 52428 blocks
-    //struct spatio_temporal_range_predicate predicate = {18481339, 30801919, 18481339, 30801919, 18481339, 30801919};
-
-    // 78643 blocks
-    //struct spatio_temporal_range_predicate predicate = {12320814, 30801919, 12320814, 30801919, 12320814, 30801919};
-
-    // 104857 blocks
-    //struct spatio_temporal_range_predicate predicate = {6160524, 30801919, 6160524, 30801919, 6160524, 30801919};
-
-    // 131072 blocks
-    //struct spatio_temporal_range_predicate predicate = {0, 30801919, 0, 30801919, 0, 30801919};
-
-
-    // predicate for 4GB data
-    // 1 blocks
-    struct spatio_temporal_range_predicate predicate_4g_0 = {246415125, 246415359, 246415125, 246415359, 246415125, 246415359};
-
-    // 104 blocks
-    struct spatio_temporal_range_predicate predicate_4g_1 = {246390919, 246415359, 246390919, 246415359, 246390919, 246415359};
-
-    // 1048 blocks
-    struct spatio_temporal_range_predicate predicate_4g_2 = {246169079, 246415359, 246169079, 246415359, 246169079, 246415359};
-
-    // 10485 blocks
-    struct spatio_temporal_range_predicate predicate_4g_3 = {243951384, 246415359, 243951384, 246415359, 243951384, 246415359};
-
-    // 104857 blocks
-    struct spatio_temporal_range_predicate predicate_4g_4 = {221773964, 246415359, 221773964, 246415359, 221773964, 246415359};
-
-    // 209715 blocks
-    struct spatio_temporal_range_predicate predicate_4g_5 = {197132334, 246415359, 197132334, 246415359, 197132334, 246415359};
-
-    // 419430 blocks
-    struct spatio_temporal_range_predicate predicate_4g_6 = {147849309, 246415359, 147849309, 246415359, 147849309, 246415359};
-
-    // 629145 blocks
-    struct spatio_temporal_range_predicate predicate_4g_7 = {98566284, 246415359, 98566284, 246415359, 98566284, 246415359};
-
-    // 838860 blocks
-    struct spatio_temporal_range_predicate predicate_4g_8 = {49283259, 246415359, 49283259, 246415359, 49283259, 246415359};
-
-    // 1048576 blocks
-    struct spatio_temporal_range_predicate predicate_4g_9 = {0, 246415359, 0, 246415359, 0, 246415359};
-
-    struct spatio_temporal_range_predicate predicate = {0, 2949, 0, 29491199, 0, 29491199};
+    struct spatio_temporal_range_predicate predicate = {0, 2949119, 0, 29491199, 0, 29491199};
 
     struct id_temporal_predicate predicate_id = {12, 0,  2949119*2};
 
     clock_t start, end;
     start = clock();
-    //exp_native_spatio_temporal_host_batch(&predicate);
+    exp_native_spatio_temporal_host_batch(&predicate);
     //exp_native_spatio_temporal_adaptive_pushdown(&predicate);
     //exp_native_spatio_temporal_armcpu_full_pushdown_batch(&predicate);
-    //exp_native_spatio_temporal_fpga_full_pushdown(&predicate);
+    //exp_native_spatio_temporal_fpga_full_pushdown_batch(&predicate);
 
     //exp_native_id_temporal_host_batch(&predicate_id);
-    //exp_native_id_temporal_armcpu_full_pushdown_batch(&predicate_id);
+    //exp_native_id_temporal_armcpu_full_pushdown(&predicate_id);
     //exp_native_id_temporal_fpga_full_pushdown_batch(&predicate_id);
 
     end = clock();
@@ -992,13 +974,13 @@ int main(void) {
     // block pointer: [1048575], time min: 235929375, time max: 235929599
     // 4G: 1048576  2G: 524288  1G: 262144  512MB: 131072   256MB: 65536    128MB:32768
     //ingest_and_flush_synthetic_data(131072);
-    run_on_synthetic_data_multithread();
+    //run_on_synthetic_data_multithread();
     //run_on_synthetic_data_batch();
     //run_on_synthetic_data_batch();
-    //ingest_and_flush_porto_data(131072);
 
+    //ingest_and_flush_porto_data(131072);
     //ingest_and_flush_porto_data_zcurve(131072);
-    //run_on_porto_data_multithread();
+    run_on_porto_data_multithread();
 
 
 

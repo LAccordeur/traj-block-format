@@ -52,6 +52,14 @@ size_t my_fread_spdk_batch(int batch_size, void **data_ptr_vec, const int *logic
     return spdk_static_fs_fread_batch(batch_size, data_ptr_vec, logical_sector_start, size_vec, stream->spdk_file);
 }
 
+size_t my_fread_spdk_multi_addr(void *ptr, size_t result_byte_size, struct my_file *stream, struct isp_descriptor *isp_desc) {
+    return spdk_static_fs_fread_multi_addr(ptr, result_byte_size, stream->spdk_file, isp_desc);
+}
+
+size_t my_fread_spdk_multi_addr_batch(int batch_size, void **ptr, size_t *result_byte_size, struct my_file *stream, struct isp_descriptor **isp_desc) {
+    return spdk_static_fs_fread_multi_addr_batch(batch_size, ptr, result_byte_size, stream->spdk_file, isp_desc);
+}
+
 size_t my_fread_isp(void *ptr, size_t estimated_result_size, struct my_file *stream, struct isp_descriptor *isp_desc, int accelerator_type) {
     if (accelerator_type == 0) {
         // arm cpu
