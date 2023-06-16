@@ -52,9 +52,15 @@ void ingest_synthetic_data_via_time_partition(struct simple_query_engine *engine
 
 void ingest_and_flush_data_via_time_partition(struct simple_query_engine *engine, FILE *fp, int block_num);
 
+void ingest_and_flush_data_via_time_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num);
+
 void ingest_and_flush_data_via_zcurve_partition(struct simple_query_engine *engine, FILE *fp, int block_num);
 
+void ingest_and_flush_data_via_zcurve_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num);
+
 void ingest_and_flush_synthetic_data_via_time_partition(struct simple_query_engine *engine, int block_num);
+
+void ingest_and_flush_synthetic_data_via_time_partition_with_block_index(struct simple_query_engine *engine, int block_index, int block_num);
 
 void rebuild_query_engine_from_file(struct simple_query_engine *engine);
 
@@ -119,4 +125,6 @@ int id_temporal_query_without_pushdown_batch(struct simple_query_engine *engine,
 int id_temporal_query_with_full_pushdown_batch(struct simple_query_engine *engine, struct id_temporal_predicate *predicate, bool enable_host_index);
 
 int id_temporal_query_with_full_pushdown_fpga_batch(struct simple_query_engine *engine, struct id_temporal_predicate *predicate, bool enable_host_index);
+
+int id_temporal_query_with_adaptive_pushdown_batch(struct simple_query_engine *engine, struct id_temporal_predicate *predicate, bool enable_host_index);
 #endif //TRAJ_BLOCK_FORMAT_SIMPLE_QUERY_ENGINE_H

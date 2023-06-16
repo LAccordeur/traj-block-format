@@ -116,3 +116,6 @@ target_link_libraries(pre_spdk_read_multithread ${SPDK_LIBS} ${PROJECT_SOURCE_DI
 
 add_executable(exp_cost_model src/groundhog/exp/exp_cost_model.c)
 target_link_libraries(exp_cost_model ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
+add_executable(exp_native_host_and_device_large src/groundhog/exp/exp_native_host_and_device_large.c)
+target_link_libraries(exp_native_host_and_device_large ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)

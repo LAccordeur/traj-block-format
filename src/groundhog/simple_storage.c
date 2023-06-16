@@ -123,7 +123,8 @@ void fetch_continuous_traj_data_block_spdk_batch(int batch_size, struct traj_sto
             logical_sector_start[i] = block_logical_pointer_start[i] * TRAJ_BLOCK_SIZE / SECTOR_SIZE;
             size_vec[i] = block_num[i] * TRAJ_BLOCK_SIZE;
         }
-
+        long long my_offset = TRAJ_BLOCK_SIZE * (long long) block_logical_pointer_start[0];
+        my_fseek(my_fp, my_offset, fs_mode);
         my_fread_spdk_batch(batch_size, destination, logical_sector_start, size_vec, my_fp);
 
     } else {
