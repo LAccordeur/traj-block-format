@@ -676,7 +676,7 @@ static void run_on_porto_data_multithread_batch() {
 
     FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/traj-block-format/queryfile/groundhog_3000w_st_30d_5.query", "r");
     // read queries
-    int query_num = 15;
+    int query_num = 3;
     struct spatio_temporal_range_predicate **predicates = allocate_spatio_temporal_predicate_mem(query_num);
     read_spatio_temporal_queries_from_csv(query_fp, predicates, query_num);
 
@@ -691,8 +691,8 @@ static void run_on_porto_data_multithread_batch() {
         exp_native_spatio_temporal_armcpu_full_pushdown_batch_v1(predicates[i], &rebuild_engine);
         printf("\n");
 
-        exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
-        printf("\n");
+        /*exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");*/
 
         //exp_native_spatio_temporal_host_device_parallel_batch_v1(predicates[i], &rebuild_engine);
 
@@ -835,20 +835,20 @@ static void run_on_synthetic_data() {
 
 static void run_on_synthetic_data_multithread() {
 
-    struct spatio_temporal_range_predicate predicate = {0, 2949119 * 3, 0, 29491199, 0, 29491199};
+    struct spatio_temporal_range_predicate predicate = {0, 2949119 * 1, 0, 29491199, 0, 29491199};
 
-    struct id_temporal_predicate predicate_id = {12, 0,  2949119*2};
+    struct id_temporal_predicate predicate_id = {12, 0,  2949119*11};
 
     clock_t start, end;
     start = clock();
     //exp_native_spatio_temporal_host_batch(&predicate);
     //exp_native_spatio_temporal_adaptive_pushdown_batch(&predicate);
-    //exp_native_spatio_temporal_armcpu_full_pushdown_batch(&predicate);
+    exp_native_spatio_temporal_armcpu_full_pushdown_batch(&predicate);
     //exp_native_spatio_temporal_fpga_full_pushdown_batch(&predicate);
-    exp_native_spatio_temporal_host_device_parallel_batch(&predicate);
+    //exp_native_spatio_temporal_host_device_parallel_batch(&predicate);
 
     //exp_native_id_temporal_host_batch(&predicate_id);
-    //exp_native_id_temporal_armcpu_full_pushdown(&predicate_id);
+    //exp_native_id_temporal_armcpu_full_pushdown_batch(&predicate_id);
     //exp_native_id_temporal_fpga_full_pushdown_batch(&predicate_id);
 
     end = clock();

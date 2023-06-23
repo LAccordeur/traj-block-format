@@ -1,13 +1,17 @@
 //
 // Created by yangguo on 11/16/22.
 //
-
+#define _GNU_SOURCE
 #include "groundhog/simple_query_engine.h"
 #include "groundhog/porto_dataset_reader.h"
 #include "groundhog/traj_block_format.h"
 #include "groundhog/config.h"
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <sched.h>
 #include "groundhog/log.h"
 #include "groundhog/isp_output_format.h"
 #include "time.h"
@@ -104,6 +108,7 @@ int
 run_id_temporal_query_host_multi_addr_batch(struct id_temporal_predicate *predicate, struct traj_storage *data_storage,
                                             int block_logical_addr_count,
                                             int *block_logical_addr_vec);
+
 
 static int check_oid_exist(const int *oids, int array_size, int checked_oid) {
     for (int i = 0; i < array_size; i++) {
@@ -371,6 +376,10 @@ void ingest_synthetic_data_via_time_partition(struct simple_query_engine *engine
         append_to_seg_meta_entry_storage(meta_storage, seg_entry);
 
         free_points_memory(points, points_num);
+
+        if (i*points_num>25559039) {
+            break;
+        }
     }
     debug_print("[ingest_synthetic_data_via_time_partition] num of ingesting data points: %d\n", points_num * (block_num - 1));
 }
@@ -1105,15 +1114,14 @@ static void free_points_buffer(int points_num) {
     free_points_memory(points_buffer, points_num);
 }
 
-static int mycount = 0;
+
 static int spatio_temporal_query_raw_trajectory_block(void* data_block, struct spatio_temporal_range_predicate *predicate) {
     int result_count = 0;
     struct traj_block_header block_header;
     parse_traj_block_for_header(data_block, &block_header);
-    struct traj_point tmp_point;
+    struct traj_point *result_buffer = (struct traj_point *)malloc(TRAJ_BLOCK_SIZE);
 
-    mycount++;
-    //printf("segment count: %d, index: %d\n", block_header.seg_count, mycount);
+    int traj_point_size = get_traj_point_size();
     struct seg_meta meta_array[block_header.seg_count];
     parse_traj_block_for_seg_meta_section(data_block, meta_array, block_header.seg_count);
     for (int j = 0; j < block_header.seg_count; j++) {
@@ -1121,17 +1129,13 @@ static int spatio_temporal_query_raw_trajectory_block(void* data_block, struct s
         if (predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min
             && predicate->lon_min <= meta_item.lon_max && predicate->lon_max >= meta_item.lon_min
             && predicate->lat_min <= meta_item.lat_max && predicate->lat_max >= meta_item.lat_min) {
-            int data_seg_points_num = meta_item.seg_size / get_traj_point_size();
-            //struct traj_point **points = allocate_points_memory(data_seg_points_num);
-            struct traj_point **points = points_buffer;
-            if (points_buffer_size < data_seg_points_num) {
-                printf("the points buffer is not big enough\n");
-            }
-            //parse_traj_block_for_seg_data(data_block, meta_item.seg_offset, points, data_seg_points_num);
+            int data_seg_points_num = meta_item.seg_size / traj_point_size;
+
+
             struct traj_point *point_ptr = (struct traj_point *)((char *) data_block + meta_item.seg_offset);
 
             for (int k = 0; k < data_seg_points_num; k++) {
-                //struct traj_point *point = points[k];
+
                 struct traj_point *point = &point_ptr[k];
                 if (predicate->lon_min <= point->normalized_longitude
                     && predicate->lon_max >= point->normalized_longitude
@@ -1139,23 +1143,24 @@ static int spatio_temporal_query_raw_trajectory_block(void* data_block, struct s
                     && predicate->lat_max >= point->normalized_latitude
                     && predicate->time_min <= point->timestamp_sec
                     && predicate->time_max >= point->timestamp_sec) {
+                    result_buffer[result_count] = *point;
                     result_count++;
-                    tmp_point.oid = point->oid; // simulate the operation to write result to output buffer
-                    tmp_point.normalized_longitude = point->normalized_longitude;
-                    tmp_point.normalized_latitude = point->normalized_latitude;
-                    tmp_point.timestamp_sec = point->timestamp_sec;
+
                 }
             }
-            //free_points_memory(points, data_seg_points_num);
+
         }
     }
+
+    free(result_buffer);
     return result_count;
 }
 
 static int id_temporal_query_raw_trajectory_block(void* data_block, struct id_temporal_predicate *predicate) {
     int result_count = 0;
     struct traj_block_header block_header;
-    struct traj_point tmp_point;
+    struct traj_point *result_buffer = (struct traj_point *)malloc(TRAJ_BLOCK_SIZE);
+    int traj_point_size = get_traj_point_size();
 
     parse_traj_block_for_header(data_block, &block_header);
     struct seg_meta meta_array[block_header.seg_count];
@@ -1169,26 +1174,22 @@ static int id_temporal_query_raw_trajectory_block(void* data_block, struct id_te
         bool oid_contained = bloom_filter_test(&rebuild_filter, &predicate->oid, 4);
 
         if (oid_contained && predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min) {
-            int data_seg_points_num = meta_item.seg_size / get_traj_point_size();
-            //struct traj_point **points = allocate_points_memory(data_seg_points_num);
-            struct traj_point **points = points_buffer;
-            if (points_buffer_size < data_seg_points_num) {
-                printf("the points buffer is not big enough\n");
-            }
-            parse_traj_block_for_seg_data(data_block, meta_item.seg_offset, points, data_seg_points_num);
+            int data_seg_points_num = meta_item.seg_size / traj_point_size;
+
+
+            struct traj_point *point_ptr = (struct traj_point *)((char *) data_block + meta_item.seg_offset);
+
             for (int k = 0; k < data_seg_points_num; k++) {
-                struct traj_point *point = points[k];
+                struct traj_point *point = &point_ptr[k];
                 if (predicate->oid <= point->oid
                     && predicate->time_min <= point->timestamp_sec
                     && predicate->time_max >= point->timestamp_sec) {
+                    result_buffer[result_count] = *point;
                     result_count++;
-                    tmp_point.oid = point->oid; // simulate the operation to write result to output buffer
-                    tmp_point.normalized_longitude = point->normalized_longitude;
-                    tmp_point.normalized_latitude = point->normalized_latitude;
-                    tmp_point.timestamp_sec = point->timestamp_sec;
+
                 }
             }
-            //free_points_memory(points, data_seg_points_num);
+
         }
     }
     return result_count;
@@ -1924,9 +1925,9 @@ run_spatio_temporal_query_host_multi_addr_batch(struct spatio_temporal_range_pre
                 size_t batch_buffer_count = result_buffer_size_vec[k] / 0x1000;
                 for (int j = 0; j < batch_buffer_count; j++) {
                     void* block_ptr = batch_base + j * TRAJ_BLOCK_SIZE;
-                    result_count += spatio_temporal_query_raw_trajectory_block_without_meta_filtering(block_ptr, predicate);
-                    //print_isp_descriptor(isp_desc_vec[k]);
+                    result_count += spatio_temporal_query_raw_trajectory_block(block_ptr, predicate);
                 }
+                //print_isp_descriptor(isp_desc_vec[k]);
             }
             batch_count = 0;
 
@@ -1951,7 +1952,7 @@ run_spatio_temporal_query_host_multi_addr_batch(struct spatio_temporal_range_pre
         size_t batch_buffer_count = result_buffer_size_vec[k] / 0x1000;
         for (int j = 0; j < batch_buffer_count; j++) {
             void* block_ptr = batch_base + j * TRAJ_BLOCK_SIZE;
-            result_count += spatio_temporal_query_raw_trajectory_block_without_meta_filtering(block_ptr, predicate);
+            result_count += spatio_temporal_query_raw_trajectory_block(block_ptr, predicate);
             //print_isp_descriptor(isp_desc_vec[k]);
         }
     }
@@ -1980,26 +1981,67 @@ struct st_computation_data {
     void** result_buffer;
     size_t *result_size;
     int result_count;
+    int cpu_id;
 };
+
+struct isp_st_computation_data {
+    struct spatio_temporal_range_predicate *predicate;
+    struct traj_storage *data_storage;
+    struct seg_meta_section_entry_storage *meta_storage;
+    int block_logical_addr_count;
+    int *block_logical_addr_vec;
+    bool enable_result_estimation;
+    int result_count;
+    int cpu_id;
+};
+
+int set_cpu(int i) {
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    CPU_SET(i, &mask);
+    printf("thread %u, i = %d\n", pthread_self(), i);
+    if (-1 == pthread_setaffinity_np(pthread_self(), sizeof(mask), &mask)) {
+        return -1;
+    }
+    return 0;
+
+}
 
 void *spatio_temporal_computation(void *ptr) {
     struct st_computation_data * computation_data = (struct st_computation_data *) ptr;
+    if (set_cpu(computation_data->cpu_id)) {
+        printf("set cpu error\n");
+    }
+
     int batch_count = computation_data->batch_count;
     void** result_buffer_vec = computation_data->result_buffer;
     size_t *result_buffer_size_vec = computation_data->result_size;
 
+    struct spatio_temporal_range_predicate st_predicate = *computation_data->predicate;
     int result_count = 0;
     for (int k = 0; k < batch_count; k++) {
         void* batch_base = result_buffer_vec[k];
         size_t batch_buffer_count = result_buffer_size_vec[k] / 0x1000;
         for (int j = 0; j < batch_buffer_count; j++) {
             void* block_ptr = batch_base + j * TRAJ_BLOCK_SIZE;
-            result_count += spatio_temporal_query_raw_trajectory_block_without_meta_filtering(block_ptr, computation_data->predicate);
+            result_count += spatio_temporal_query_raw_trajectory_block(block_ptr, &st_predicate);
             //print_isp_descriptor(isp_desc_vec[k]);
         }
     }
 
     computation_data->result_count = result_count;
+    pthread_exit(NULL);
+}
+
+void *isp_spatio_temporal_computation(void *ptr) {
+
+    struct isp_st_computation_data * params = (struct isp_st_computation_data *) ptr;
+    if (set_cpu(params->cpu_id)) {
+        printf("set cpu error\n");
+    }
+
+    int result_count = run_spatio_temporal_query_device_batch(params->predicate, params->data_storage, params->meta_storage, params->block_logical_addr_count, params->block_logical_addr_vec, params->enable_result_estimation);
+    params->result_count = result_count;
     pthread_exit(NULL);
 }
 
@@ -2009,6 +2051,133 @@ void *spatio_temporal_computation(void *ptr) {
  */
 int
 run_spatio_temporal_query_hybrid_batch(struct spatio_temporal_range_predicate *predicate, struct traj_storage *data_storage, struct seg_meta_section_entry_storage *meta_storage,
+                                       int host_block_logical_addr_count,
+                                       int *host_block_logical_addr_vec,
+                                       int pushdown_block_logical_addr_count,
+                                       int *pushdown_block_logical_addr_vec,
+                                       bool enable_result_estimation) {
+    int result_count = 0;
+
+    clock_t start, end, pure_read;
+    pure_read = 0;
+    clock_t start_all, end_all;
+    int total_result_block_num = 0;
+    start_all = clock();
+
+    // prepare batch parameters
+    int batch_size = REQUEST_BATCH_SIZE; //  fix bug here -> fixed: caused by the same request used in the batch using the same lba_array (before, we do not use malloc for lba_array)
+    int host_isp_request_num = host_block_logical_addr_count / 256 + 1;
+    int host_request_count = 0;
+    if (host_block_logical_addr_count % 256 == 0) {
+        host_isp_request_num = host_block_logical_addr_count / 256;
+    }
+    void* host_result_buffer_vec[host_isp_request_num];
+    size_t host_result_buffer_size_vec[host_isp_request_num];
+    struct isp_descriptor *host_isp_desc_vec[batch_size];
+    struct lba *host_lba_vec_ptr[batch_size];
+
+    void* pushdown_result_buffer_vec[batch_size];
+    size_t pushdown_result_buffer_size_vec[batch_size];
+    struct isp_descriptor *pushdwon_isp_desc_vec[batch_size];
+    struct lba *pushdown_lba_vec_ptr[batch_size];
+
+    // first read data for host computation
+    int batch_count = 0;
+    int host_loop_index, pushdown_loop_index;
+    pushdown_loop_index = 0;
+    for (host_loop_index = 0; host_loop_index < host_block_logical_addr_count; host_loop_index+= 256) {
+        int host_block_addr_vec_size = host_block_logical_addr_count - host_loop_index > 256 ? 256 : host_block_logical_addr_count - host_loop_index;
+        int host_result_size = host_block_addr_vec_size * 0x1000;
+
+
+        if (host_result_size % 0x1000 != 0) {
+            host_result_size = ((host_result_size / 0x1000) + 1) * 0x1000;
+        }
+        int host_result_block_num = host_result_size / 0x1000;
+        //int estimated_result_block_num = 1;
+        total_result_block_num += host_result_block_num;
+
+
+        void* host_result_buffer = malloc(host_result_size);
+
+        int host_block_meta_vec_size = calculate_aggregate_block_vec_size(&host_block_logical_addr_vec[host_loop_index], host_block_addr_vec_size);
+        struct continuous_block_meta host_block_meta_vec[host_block_meta_vec_size];
+        aggregate_blocks(&host_block_logical_addr_vec[host_loop_index], host_block_addr_vec_size, host_block_meta_vec, host_block_meta_vec_size);
+
+        struct isp_descriptor *host_isp_desc = malloc(sizeof(struct isp_descriptor));
+        struct lba *host_lba_vec = malloc(sizeof(struct lba) * host_block_meta_vec_size);
+        assemble_lba_vec_via_block_meta(host_lba_vec, DATA_FILE_OFFSET, host_block_meta_vec, host_block_meta_vec_size);
+        assemble_isp_desc_without_comp(host_isp_desc, host_result_block_num, host_lba_vec, host_block_meta_vec_size);
+
+        //start = clock();
+        host_result_buffer_vec[host_request_count] = host_result_buffer;
+        host_result_buffer_size_vec[host_request_count] = host_result_size;
+        host_isp_desc_vec[batch_count] = host_isp_desc;
+        host_lba_vec_ptr[batch_count] = host_lba_vec;
+
+
+        batch_count++;
+        host_request_count++;
+        if ((batch_count % batch_size == 0) || (host_loop_index + 256 >= host_block_logical_addr_count)) {
+            // submit host computation
+            start = clock();
+            //do_isp_for_trajectory_data_without_comp_batch(batch_count, data_storage, host_result_buffer_vec+host_request_count-batch_count, host_result_buffer_size_vec+host_request_count-batch_count, host_isp_desc_vec);
+            do_isp_for_trajectory_data_without_comp_batch(batch_count, data_storage, &host_result_buffer_vec[host_request_count-batch_count], &host_result_buffer_size_vec[host_request_count-batch_count], host_isp_desc_vec);
+            //do_isp_for_trajectory_data_without_comp_batch(batch_count, data_storage, host_result_buffer_vec, host_result_buffer_size_vec, host_isp_desc_vec);
+
+            end = clock();
+            pure_read += (end - start);
+
+
+            for (int m = 0; m < batch_count; m++) {
+                //print_isp_descriptor(host_isp_desc_vec[m]);
+                free(host_isp_desc_vec[m]);
+                free(host_lba_vec_ptr[m]);
+            }
+
+            batch_count = 0;
+        }
+    }
+
+    // lanuch a thread for host computation and submit the computation to the device
+    pthread_t thread_comp, thread_isp;
+    int iret1, iret2;
+    struct st_computation_data computation_data = {predicate, host_request_count, host_result_buffer_vec, host_result_buffer_size_vec, 0};
+    computation_data.cpu_id = 6;
+    iret1 = pthread_create(&thread_comp, NULL, spatio_temporal_computation, &computation_data);
+
+    // submit device computation
+    struct isp_st_computation_data isp_data = {predicate, data_storage, meta_storage, pushdown_block_logical_addr_count, pushdown_block_logical_addr_vec, enable_result_estimation};
+    isp_data.cpu_id = 7;
+    iret2 = pthread_create(&thread_isp, NULL, isp_spatio_temporal_computation, &isp_data);
+
+    //result_count+= run_spatio_temporal_query_device_batch(predicate, data_storage, meta_storage, pushdown_block_logical_addr_count, pushdown_block_logical_addr_vec, enable_result_estimation);
+
+    pthread_join(thread_comp, NULL);
+    pthread_join(thread_isp, NULL);
+    result_count += computation_data.result_count;
+    result_count += isp_data.result_count;
+    for (int m = 0; m < host_request_count; m++) {
+        free(host_result_buffer_vec[m]);
+    }
+
+
+    end_all = clock();
+
+
+    printf("[host & device parallel batch] total estimated result block number: %d\n", total_result_block_num);
+    printf("[host & device parallel batch] host pure read time: %f\n",(double)pure_read);
+    printf("[host & device parallel batch] query time (including computation): %f\n", (double)(end_all - start_all));
+
+    return result_count;
+}
+
+
+/*
+ * in a batch, the first set is host isp and the remaining set is isp cpu
+ */
+int
+run_spatio_temporal_query_hybrid_batch_poor_perf(struct spatio_temporal_range_predicate *predicate, struct traj_storage *data_storage, struct seg_meta_section_entry_storage *meta_storage,
                                        int host_block_logical_addr_count,
                                        int *host_block_logical_addr_vec,
                                        int pushdown_block_logical_addr_count,
@@ -2549,7 +2718,7 @@ run_spatio_temporal_query_in_host_batch(struct spatio_temporal_range_predicate *
                     int block_count_value = current_block_count_vec[m];
                     for (int index = 0; index < block_count_value; index++) {
                         start_computation = clock();
-                        int count = spatio_temporal_query_raw_trajectory_block_without_meta_filtering(
+                        int count = spatio_temporal_query_raw_trajectory_block(
                                 buffer_ptr + index * TRAJ_BLOCK_SIZE, predicate);
                         result_count += count;
                         end_computation = clock();
@@ -2578,7 +2747,7 @@ run_spatio_temporal_query_in_host_batch(struct spatio_temporal_range_predicate *
         int block_count_value = current_block_count_vec[m];
         for (int index = 0; index < block_count_value; index++) {
             start_computation = clock();
-            int count = spatio_temporal_query_raw_trajectory_block_without_meta_filtering(
+            int count = spatio_temporal_query_raw_trajectory_block(
                     buffer_ptr + index * TRAJ_BLOCK_SIZE, predicate);
             result_count += count;
             end_computation = clock();
@@ -4196,7 +4365,7 @@ run_id_temporal_query_in_host_batch(struct id_temporal_predicate *predicate, str
                     int block_count_value = current_block_count_vec[m];
                     for (int index = 0; index < block_count_value; index++) {
                         start_computation = clock();
-                        int count = id_temporal_query_raw_trajectory_block_without_meta_filtering(
+                        int count = id_temporal_query_raw_trajectory_block(
                                 buffer_ptr + index * TRAJ_BLOCK_SIZE, predicate);
                         result_count += count;
                         end_computation = clock();
@@ -4225,7 +4394,7 @@ run_id_temporal_query_in_host_batch(struct id_temporal_predicate *predicate, str
         int block_count_value = current_block_count_vec[m];
         for (int index = 0; index < block_count_value; index++) {
             start_computation = clock();
-            int count = id_temporal_query_raw_trajectory_block_without_meta_filtering(
+            int count = id_temporal_query_raw_trajectory_block(
                     buffer_ptr + index * TRAJ_BLOCK_SIZE, predicate);
             result_count += count;
             end_computation = clock();

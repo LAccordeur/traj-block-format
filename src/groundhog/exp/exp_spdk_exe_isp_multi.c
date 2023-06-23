@@ -325,7 +325,7 @@ hello_world(void)
 
         int read_block_size = 4096;
         bool is_id_temporal_query = false;
-        int estimated_result_block_num = 30;
+        int estimated_result_block_num = 256;
         int lba_vec_size = 3;
         struct lba lba_vec[lba_vec_size];
         lba_vec[0].start_lba = 0;
@@ -333,7 +333,7 @@ hello_world(void)
         lba_vec[1].start_lba = 100;
         lba_vec[1].sector_count = 100;
         lba_vec[2].start_lba = 200;
-        lba_vec[2].sector_count = 3896;
+        lba_vec[2].sector_count = 56;
         /*lba_vec[0].start_lba = 0;
         lba_vec[0].sector_count = 256;
         lba_vec[1].start_lba = 256;

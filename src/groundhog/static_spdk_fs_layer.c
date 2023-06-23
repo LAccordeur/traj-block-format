@@ -5,6 +5,7 @@
 
 #include "groundhog/static_spdk_fs_layer.h"
 #include "spdk/nvme_zns.h"
+#include <time.h>
 
 #define MAX_TRANSFER_SECTOR_COUNT 256
 
@@ -22,6 +23,14 @@ static struct spdk_nvme_driver_desc spdk_driver_desc;
 static struct spdk_static_file_desc file_desc_vec[3];
 
 static bool has_unfinished_requests(struct callback_sequence *sequence_arr, int arr_size);
+
+void microsleep(uint32_t microseconds) {
+struct timespec ts = {
+        microseconds / 1000000,
+        (microseconds % 1000000) * 1000    };
+
+while ((-1 == nanosleep(&ts, &ts)) && (EINTR == errno));
+}
 
 void init_and_mk_fs_for_traj(bool is_flushed) {
     init_spdk_nvme_driver(&spdk_driver_desc);
@@ -581,6 +590,7 @@ size_t spdk_static_fs_fread_batch(int batch_size, const void **data_ptr_vec, con
 
     /* poll for completions */
     while (has_unfinished_requests(sequences, batch_size)) {
+
         spdk_nvme_qpair_process_completions(ns_entry->qpair, 0);
     }
     return total_sector_count * SECTOR_SIZE;
@@ -1025,13 +1035,17 @@ size_t spdk_static_fs_fread_isp_batch(int batch_size, const void **data_ptr_vec,
 
 
     /* poll for completions */
+
     while (has_unfinished_requests(sequences, batch_size)) {
+        //nanosleep(&ts, &ts);
+        //microsleep(10);
         spdk_nvme_qpair_process_completions(ns_entry->qpair, 0);
     }
 
 
     return total_sector_count * SECTOR_SIZE;
 }
+
 
 
 size_t spdk_static_fs_fread_isp_fpga_batch(int batch_size, const void **data_ptr_vec, const size_t *size_vec, struct spdk_static_file_desc *file_desc, struct isp_descriptor **isp_desc_vec) {
