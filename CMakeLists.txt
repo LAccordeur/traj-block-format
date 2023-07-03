@@ -55,6 +55,7 @@ add_library(traj_block_format
         src/groundhog/bloom/bitutil.c
         src/groundhog/bloom/bloom.c
         src/groundhog/bloom/hashf.c
+        src/groundhog/nyc_dataset_reader.c
         include/groundhog/normalization_util.h
         include/groundhog/traj_block_format.h
         include/groundhog/porto_dataset_reader.h
@@ -76,6 +77,7 @@ add_library(traj_block_format
         include/groundhog/bloom/bitutil.h
         include/groundhog/bloom/bloom.h
         include/groundhog/bloom/hashf.h
+        include/groundhog/nyc_dataset_reader.h
         )
 
 
@@ -120,3 +122,7 @@ target_link_libraries(exp_cost_model ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-bu
 
 add_executable(exp_native_host_and_device_large src/groundhog/exp/exp_native_host_and_device_large.c)
 target_link_libraries(exp_native_host_and_device_large ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
+add_executable(exp_traj_format src/groundhog/exp/exp_traj_format.c)
+target_link_libraries(exp_traj_format ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+

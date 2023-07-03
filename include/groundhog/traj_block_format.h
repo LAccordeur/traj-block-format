@@ -24,7 +24,7 @@ struct seg_meta {
     int seg_offset;
     int seg_size;
     char oid_filter[MY_OID_FILTER_SIZE];
-    int oid_filter_size;
+    //int oid_filter_size;
 };
 
 struct traj_block_header {

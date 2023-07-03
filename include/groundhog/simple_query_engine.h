@@ -52,9 +52,13 @@ void ingest_synthetic_data_via_time_partition(struct simple_query_engine *engine
 
 void ingest_and_flush_data_via_time_partition(struct simple_query_engine *engine, FILE *fp, int block_num);
 
+void ingest_and_flush_nyc_data_via_time_partition(struct simple_query_engine *engine, FILE *fp, int block_num);
+
 void ingest_and_flush_data_via_time_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num);
 
 void ingest_and_flush_data_via_zcurve_partition(struct simple_query_engine *engine, FILE *fp, int block_num);
+
+void ingest_and_flush_nyc_data_via_zcurve_partition(struct simple_query_engine *engine, FILE *fp, int block_num);
 
 void ingest_and_flush_data_via_zcurve_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num);
 

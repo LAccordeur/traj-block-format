@@ -160,7 +160,7 @@ void init_seg_meta(struct seg_meta *meta) {
     meta->lat_max = 0;
     meta->time_min = INT_MAX;
     meta->time_max = 0;
-    meta->oid_filter_size = OID_FILTER_SIZE;
+    //meta->oid_filter_size = OID_FILTER_SIZE;
     memset(meta->oid_filter, 0, OID_FILTER_SIZE);
 }
 
@@ -192,7 +192,8 @@ void extract_spatiotemporal_seg_meta(struct traj_point **points, int array_size,
         // add oid filter
         bloom_filter_put(filter, &(point->oid), sizeof(point->oid));
     }
-    memcpy(meta->oid_filter, filter->vect->mem, meta->oid_filter_size);
+    //memcpy(meta->oid_filter, filter->vect->mem, meta->oid_filter_size);
+    memcpy(meta->oid_filter, filter->vect->mem, OID_FILTER_SIZE);
     bloom_filter_free(filter);
 }
 

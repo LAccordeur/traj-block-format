@@ -25,7 +25,26 @@ static void parse_id_temporal_row(char* line, struct id_temporal_predicate *dest
         destination_row->time_max = atoi(token);
     }
 
+}
 
+static void parse_id_temporal_row_nyc(char* line, struct id_temporal_predicate *destination_row) {
+    char *token = strtok(line, ",");
+
+    if (token) {
+        destination_row->oid = atoi(token);
+    }
+
+    token = strtok(NULL, ",");
+    if (token) {
+        int normalized_time = normalize_datetime(token);
+        destination_row->time_min = normalized_time;
+    }
+
+    token = strtok(NULL, ",");
+    if (token) {
+        int normalized_time = normalize_datetime(token);
+        destination_row->time_max = normalized_time;
+    }
 }
 
 static void parse_spatio_temporal_row(char* line, struct spatio_temporal_range_predicate *destination_row) {
@@ -39,6 +58,51 @@ static void parse_spatio_temporal_row(char* line, struct spatio_temporal_range_p
     token = strtok(NULL, ",");
     if (token) {
         destination_row->time_max = atoi(token);
+    }
+
+    token = strtok(NULL, ",");
+    if (token) {
+        double lon_min = atof(token);
+        int normalized_lon_min = normalize_longitude(lon_min);
+        destination_row->lon_min = normalized_lon_min;
+    }
+
+    token = strtok(NULL, ",");
+    if (token) {
+        double lon_max = atof(token);
+        int normalized_lon_max = normalize_longitude(lon_max);
+        destination_row->lon_max = normalized_lon_max;
+    }
+
+    token = strtok(NULL, ",");
+    if (token) {
+        double lat_min = atof(token);
+        int normalized_lat_min = normalize_latitude(lat_min);
+        destination_row->lat_min = normalized_lat_min;
+    }
+
+    token = strtok(NULL, ",");
+    if (token) {
+        double lat_max = atof(token);
+        int normalized_lat_max = normalize_latitude(lat_max);
+        destination_row->lat_max = normalized_lat_max;
+    }
+
+}
+
+static void parse_spatio_temporal_row_nyc(char* line, struct spatio_temporal_range_predicate *destination_row) {
+
+    char *token = strtok(line, ",");
+
+    if (token) {
+        int normalized_time = normalize_datetime(token);
+        destination_row->time_min = normalized_time;
+    }
+
+    token = strtok(NULL, ",");
+    if (token) {
+        int normalized_time = normalize_datetime(token);
+        destination_row->time_max = normalized_time;
     }
 
     token = strtok(NULL, ",");
@@ -109,6 +173,24 @@ int read_id_temporal_queries_from_csv(FILE *fp, struct id_temporal_predicate **p
     return line_count;
 }
 
+int read_id_temporal_queries_from_csv_nyc(FILE *fp, struct id_temporal_predicate **predicate, int row_count) {
+    fseek(fp, 0, SEEK_SET);
+
+    char line[128];
+    int line_count = 0;
+    while (fgets(line, 128, fp)) {
+        struct id_temporal_predicate *row = predicate[line_count];
+        parse_id_temporal_row_nyc(line, row);
+        line_count++;
+
+        if (line_count >= row_count) {
+            break;
+        }
+    }
+
+    return line_count;
+}
+
 struct spatio_temporal_range_predicate** allocate_spatio_temporal_predicate_mem(int array_size) {
     struct spatio_temporal_range_predicate **predicates;
     predicates = (struct spatio_temporal_range_predicate**) malloc(array_size * sizeof(struct spatio_temporal_range_predicate));
@@ -137,6 +219,24 @@ int read_spatio_temporal_queries_from_csv(FILE *fp, struct spatio_temporal_range
     while (fgets(line, 128, fp)) {
         struct spatio_temporal_range_predicate *row = predicate[line_count];
         parse_spatio_temporal_row(line, row);
+        line_count++;
+
+        if (line_count >= row_count) {
+            break;
+        }
+    }
+
+    return line_count;
+}
+
+int read_spatio_temporal_queries_from_csv_nyc(FILE *fp, struct spatio_temporal_range_predicate **predicate, int row_count) {
+    fseek(fp, 0, SEEK_SET);
+
+    char line[128];
+    int line_count = 0;
+    while (fgets(line, 128, fp)) {
+        struct spatio_temporal_range_predicate *row = predicate[line_count];
+        parse_spatio_temporal_row_nyc(line, row);
         line_count++;
 
         if (line_count >= row_count) {

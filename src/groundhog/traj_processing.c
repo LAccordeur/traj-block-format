@@ -11,13 +11,22 @@ static int compare_pointed_to_data(const void *a, const void *b) {
     struct traj_point *ptr_a = *((struct traj_point**)a);
     struct traj_point *ptr_b = *((struct traj_point**)b);
 
-    if (ptr_a->timestamp_sec < ptr_b->timestamp_sec) {
+    /*if (ptr_a->timestamp_sec < ptr_b->timestamp_sec) {
         return -1;
     } else if (ptr_a->timestamp_sec > ptr_b->timestamp_sec) {
         return 1;
     } else {
         return 0;
+    }*/
+
+    if (ptr_a->oid < ptr_b->oid) {
+        return -1;
+    } else if (ptr_a->oid > ptr_b->oid) {
+        return 1;
+    } else {
+        return (ptr_a->timestamp_sec < ptr_b->timestamp_sec) - (ptr_b->timestamp_sec < ptr_a->timestamp_sec);
     }
+
 }
 
 /**
@@ -34,12 +43,20 @@ static int cmp_zcurve(const void *a, const void *b) {
     return zcurve_a > zcurve_b ? 1 : -1;
 }
 
+static int cmp_zcurve_spatial(const void *a, const void *b) {
+    struct traj_point *point_a = *(struct traj_point **)a;
+    struct traj_point *point_b = *(struct traj_point **)b;
+    long zcurve_a = generate_zcurve_value_spatial(point_a->normalized_longitude, point_a->normalized_latitude);
+    long zcurve_b = generate_zcurve_value_spatial(point_b->normalized_longitude, point_b->normalized_latitude);
+    return zcurve_a > zcurve_b ? 1 : -1;
+}
+
 void sort_traj_points(struct traj_point **points, int array_size) {
     qsort(points, array_size, sizeof(struct traj_point*), compare_pointed_to_data);
 }
 
 void sort_traj_points_zcurve(struct traj_point **points, int array_size) {
-    qsort(points, array_size, sizeof(struct traj_point*), cmp_zcurve);
+    qsort(points, array_size, sizeof(struct traj_point*), cmp_zcurve_spatial);
 }
 
 int split_traj_points_via_point_num(struct traj_point **points, int points_num, int segment_size, struct seg_meta_pair_itr *pair_array, int array_size) {

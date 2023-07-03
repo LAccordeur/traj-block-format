@@ -5,6 +5,8 @@
 
 extern "C" {
 #include "groundhog/porto_dataset_reader.h"
+#include "groundhog/nyc_dataset_reader.h"
+#include <stdio.h>
 }
 
 TEST(readtest, readblock) {
@@ -46,6 +48,23 @@ TEST(readtest, readpoints) {
 
     free_points_memory(points, 4);
     free_points_memory(points2, 4);
+
+
+}
+
+TEST(readtestnyc, readpoints) {
+
+    FILE *fp = fopen("/home/yangguo/Dataset/nyctaxi/pickup_trip_data_2010_2013_full_v1.csv", "r");
+
+    struct traj_point **points = allocate_points_memory(16);
+
+    int row_offset = 4;
+    int row_count = 16;
+    int result_count = read_points_from_csv_nyc(fp, points, row_offset, row_count);
+    printf("read count: %d\n", result_count);
+    print_traj_points(points, row_count);
+
+    free_points_memory(points, 16);
 
 
 }

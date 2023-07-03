@@ -95,7 +95,10 @@ int read_one_buffer_block_from_csv(FILE *fp, void *buffer, int row_offset, int r
 }
 
 int read_points_from_csv(FILE *fp, struct traj_point **points, int row_offset, int row_count) {
-    int file_offset = row_offset * CSV_ROW_SIZE;
+    /*fseek(fp, 0, SEEK_END); // seek to end of file
+    long int file_size = ftell(fp); // get current file pointer*/
+
+    long int file_offset = (long int)row_offset * CSV_ROW_SIZE;
     fseek(fp, file_offset, SEEK_SET);
 
     char line[128];

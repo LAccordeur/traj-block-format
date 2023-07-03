@@ -12,7 +12,7 @@ extern "C" {
 TEST(traj_processing, sort) {
 
     struct traj_point **points = allocate_points_memory(4);
-    FILE *fp = fopen("/home/yangguo/Data/DataSet/Trajectory/TaxiPorto/archive/porto_data_v2.csv", "r");
+    FILE *fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
 
     read_points_from_csv(fp, points, 0, 4);
     print_traj_points(points, 4);

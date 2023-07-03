@@ -11,7 +11,7 @@
 #include "groundhog/config.h"
 #include "groundhog/porto_dataset_reader.h"
 #include "groundhog/traj_processing.h"
-
+#include "groundhog/normalization_util.h"
 
 int
 loop(int result_count, const struct traj_point *points, const struct spatio_temporal_range_predicate *predicate, int i);
@@ -333,24 +333,26 @@ static int spatio_temporal_query_raw_trajectory_block(void* data_block, struct s
 
 static int spatio_temporal_query_raw_trajectory_block_new(void* data_block, struct spatio_temporal_range_predicate *predicate) {
     int result_count = 0;
-    struct traj_block_header block_header;
-    parse_traj_block_for_header(data_block, &block_header);
+
     int seg_count = *((int*)data_block);
 
     struct traj_point *result_buffer = (struct traj_point *)malloc(TRAJ_BLOCK_SIZE);
 
     int traj_point_size = get_traj_point_size();
-    struct seg_meta meta_array[block_header.seg_count];
-    parse_traj_block_for_seg_meta_section(data_block, meta_array, block_header.seg_count);
-    for (int j = 0; j < block_header.seg_count; j++) {
-        struct seg_meta meta_item = meta_array[j];
-        if (predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min
-            && predicate->lon_min <= meta_item.lon_max && predicate->lon_max >= meta_item.lon_min
-            && predicate->lat_min <= meta_item.lat_max && predicate->lat_max >= meta_item.lat_min) {
-            int data_seg_points_num = meta_item.seg_size / traj_point_size;
+
+    void* meta_array_base = (char*)data_block + get_header_size();
+    struct seg_meta *meta_array = (struct seg_meta *)meta_array_base;
+
+    for (int j = 0; j < seg_count; j++) {
+
+        struct seg_meta *meta_item = &meta_array[j];
+        if (predicate->time_min <= meta_item->time_max && predicate->time_max >= meta_item->time_min
+            && predicate->lon_min <= meta_item->lon_max && predicate->lon_max >= meta_item->lon_min
+            && predicate->lat_min <= meta_item->lat_max && predicate->lat_max >= meta_item->lat_min) {
+            int data_seg_points_num = meta_item->seg_size / traj_point_size;
 
 
-            struct traj_point *point_ptr = (struct traj_point *)((char *) data_block + meta_item.seg_offset);
+            struct traj_point *point_ptr = (struct traj_point *)((char *) data_block + meta_item->seg_offset);
 
             for (int k = 0; k < data_seg_points_num; k++) {
 
@@ -374,6 +376,57 @@ static int spatio_temporal_query_raw_trajectory_block_new(void* data_block, stru
     return result_count;
 }
 
+static int spatio_temporal_query_raw_trajectory_block_new_opt(void* data_block, struct spatio_temporal_range_predicate *predicate) {
+    int result_count = 0;
+
+    int seg_count = *((int*)data_block);
+
+    struct traj_point *result_buffer = (struct traj_point *)malloc(TRAJ_BLOCK_SIZE);
+
+    int traj_point_size = get_traj_point_size();
+
+    void* meta_array_base = (char*)data_block + get_header_size();
+    struct seg_meta *meta_array = (struct seg_meta *)meta_array_base;
+
+    for (int j = 0; j < seg_count; j++) {
+
+        struct seg_meta *meta_item = &meta_array[j];
+        if (predicate->time_min <= meta_item->time_max && predicate->time_max >= meta_item->time_min
+            && predicate->lon_min <= meta_item->lon_max && predicate->lon_max >= meta_item->lon_min
+            && predicate->lat_min <= meta_item->lat_max && predicate->lat_max >= meta_item->lat_min) {
+            int data_seg_points_num = meta_item->seg_size / traj_point_size;
+            struct traj_point *point_ptr = (struct traj_point *)((char *) data_block + meta_item->seg_offset);
+
+            if (meta_item->time_min >= predicate->time_min && meta_item->time_max <= predicate->time_max
+                && meta_item->lon_min >= predicate->lon_min && meta_item->lon_max <= predicate->lon_max
+                && meta_item->lat_min >= predicate->lat_min && meta_item->lat_max <= predicate->lat_max) {
+                //fully contained
+                memcpy(&result_buffer[result_count], point_ptr, data_seg_points_num * traj_point_size);
+                //printf("i am fully contained\n");
+            } else {
+
+                for (int k = 0; k < data_seg_points_num; k++) {
+
+                    struct traj_point *point = &point_ptr[k];
+                    if (predicate->lon_min <= point->normalized_longitude
+                        && predicate->lon_max >= point->normalized_longitude
+                        && predicate->lat_min <= point->normalized_latitude
+                        && predicate->lat_max >= point->normalized_latitude
+                        && predicate->time_min <= point->timestamp_sec
+                        && predicate->time_max >= point->timestamp_sec) {
+                        result_buffer[result_count] = *point;
+                        result_count++;
+
+                    }
+                }
+            }
+
+        }
+    }
+
+    free(result_buffer);
+    return result_count;
+}
 
 
 static int spatio_temporal_query_raw_trajectory_block_empty(void* data_block, struct spatio_temporal_range_predicate *predicate) {
@@ -583,6 +636,45 @@ static int id_temporal_query_raw_trajectory_block(void* data_block, struct id_te
 }
 
 
+static int id_temporal_query_raw_trajectory_block_new(void* data_block, struct id_temporal_predicate *predicate) {
+    int result_count = 0;
+    struct traj_block_header block_header;
+    struct traj_point *result_buffer = (struct traj_point *)malloc(TRAJ_BLOCK_SIZE);
+    int traj_point_size = get_traj_point_size();
+
+    parse_traj_block_for_header(data_block, &block_header);
+    struct seg_meta meta_array[block_header.seg_count];
+    parse_traj_block_for_seg_meta_section(data_block, meta_array, block_header.seg_count);
+    for (int j = 0; j < block_header.seg_count; j++) {
+        struct seg_meta meta_item = meta_array[j];
+        bloom_filter  rebuild_filter;
+        bit_vect rebuilt_bit_vec;
+        void* bit_mem = meta_item.oid_filter;
+        bloom_filter_rebuild_default(&rebuild_filter, &rebuilt_bit_vec, bit_mem, MY_OID_FILTER_SIZE * 8);
+        bool oid_contained = bloom_filter_test(&rebuild_filter, &predicate->oid, 4);
+
+        if (oid_contained && predicate->time_min <= meta_item.time_max && predicate->time_max >= meta_item.time_min) {
+            int data_seg_points_num = meta_item.seg_size / traj_point_size;
+
+
+            struct traj_point *point_ptr = (struct traj_point *)((char *) data_block + meta_item.seg_offset);
+
+            for (int k = 0; k < data_seg_points_num; k++) {
+                struct traj_point *point = &point_ptr[k];
+                if (predicate->oid <= point->oid
+                    && predicate->time_min <= point->timestamp_sec
+                    && predicate->time_max >= point->timestamp_sec) {
+                    result_buffer[result_count] = *point;
+                    result_count++;
+
+                }
+            }
+
+        }
+    }
+    return result_count;
+}
+
 static int id_temporal_query_raw_trajectory_block_empty(void* data_block, struct id_temporal_predicate *predicate) {
     int result_count = 0;
     /*struct traj_block_header block_header;
@@ -763,10 +855,12 @@ void verify_cost_model() {
     int result_count = 0;
     int block_num = 131072;
     void* buf_ptr_vec[block_num];
-    prepare_data(block_num, buf_ptr_vec);
+    prepare_data_porto_zcurve(block_num, buf_ptr_vec);
 
-    struct spatio_temporal_range_predicate predicate = {0 ,2949119 * 6, 0, 29491199, 0, 29491199};
-    //struct spatio_temporal_range_predicate predicate = {0 ,1372659460, 0, 1372659460, 0, 1672659460};
+    //struct spatio_temporal_range_predicate predicate = {0 ,2949119 * 6, 0, 29491199, 0, 29491199};
+    struct spatio_temporal_range_predicate predicate = {normalize_longitude(-8.612973), normalize_longitude(-8.512973) ,
+                                                        normalize_latitude(41.150043), normalize_latitude(41.250043), 1372670836, 1373275636};
+
     clock_t start = clock();
     for (int i = 0; i < block_num; i++) {
          result_count += spatio_temporal_query_raw_trajectory_block_new(buf_ptr_vec[i], &predicate);
@@ -867,6 +961,6 @@ void get_estimated_cost_device_id() {
 }
 
 int main(void) {
-    verify_cost_model();
+    verify_cost_model_id();
     return 0;
 }

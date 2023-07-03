@@ -8,6 +8,7 @@
 #include "groundhog/simple_query_engine.h"
 #include "groundhog/query_workload_reader.h"
 #include "time.h"
+#include "groundhog/config.h"
 
 static bool enable_host_index = false;
 
@@ -50,6 +51,58 @@ static void ingest_and_flush_porto_data_zcurve(int data_block_num) {
     struct my_file meta_file = {NULL, SEG_META_FILENAME, "w", SPDK_FS_MODE};
     init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
     ingest_and_flush_data_via_zcurve_partition(&query_engine, data_fp, data_block_num);
+
+    // print temporal meta information for each block
+    struct index_entry_storage *index_storage = &query_engine.index_storage;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
+    }
+
+    // save filesystem meta
+    spdk_flush_static_fs_meta_for_traj();
+
+}
+
+static void ingest_and_flush_nyc_data(int data_block_num) {
+    init_and_mk_fs_for_traj(false);
+
+    //int data_block_num = 1024;
+
+    FILE *data_fp = fopen("/home/yangguo/Dataset/nyctaxi/pickup_trip_data_2010_2013_full_v1.csv", "r");
+    // ingest data
+    struct simple_query_engine query_engine;
+    struct my_file data_file = {NULL, DATA_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file index_file = {NULL, INDEX_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file meta_file = {NULL, SEG_META_FILENAME, "w", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+    ingest_and_flush_nyc_data_via_time_partition(&query_engine, data_fp, data_block_num);
+
+    // print temporal meta information for each block
+    struct index_entry_storage *index_storage = &query_engine.index_storage;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
+    }
+
+    // save filesystem meta
+    spdk_flush_static_fs_meta_for_traj();
+
+}
+
+static void ingest_and_flush_nyc_data_zcurve(int data_block_num) {
+    init_and_mk_fs_for_traj(false);
+
+    //int data_block_num = 1024;
+
+    FILE *data_fp = fopen("/home/yangguo/Dataset/nyctaxi/pickup_trip_data_2010_2013_full_v1.csv", "r");
+    // ingest data
+    struct simple_query_engine query_engine;
+    struct my_file data_file = {NULL, DATA_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file index_file = {NULL, INDEX_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file meta_file = {NULL, SEG_META_FILENAME, "w", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+    ingest_and_flush_nyc_data_via_zcurve_partition(&query_engine, data_fp, data_block_num);
 
     // print temporal meta information for each block
     struct index_entry_storage *index_storage = &query_engine.index_storage;
@@ -674,9 +727,9 @@ static void run_on_porto_data_multithread_batch() {
 
     rebuild_query_engine_from_file(&rebuild_engine);
 
-    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/traj-block-format/queryfile/groundhog_3000w_st_30d_5.query", "r");
+    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/traj-block-format/queryfile/groundhog_3000w_st_7d_1.query", "r");
     // read queries
-    int query_num = 3;
+    int query_num = 10;
     struct spatio_temporal_range_predicate **predicates = allocate_spatio_temporal_predicate_mem(query_num);
     read_spatio_temporal_queries_from_csv(query_fp, predicates, query_num);
 
@@ -691,8 +744,8 @@ static void run_on_porto_data_multithread_batch() {
         exp_native_spatio_temporal_armcpu_full_pushdown_batch_v1(predicates[i], &rebuild_engine);
         printf("\n");
 
-        /*exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
-        printf("\n");*/
+        exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
 
         //exp_native_spatio_temporal_host_device_parallel_batch_v1(predicates[i], &rebuild_engine);
 
@@ -837,7 +890,7 @@ static void run_on_synthetic_data_multithread() {
 
     struct spatio_temporal_range_predicate predicate = {0, 2949119 * 1, 0, 29491199, 0, 29491199};
 
-    struct id_temporal_predicate predicate_id = {12, 0,  2949119*11};
+    struct id_temporal_predicate predicate_id = {12, 0,  2949119*1};
 
     clock_t start, end;
     start = clock();
@@ -1195,6 +1248,216 @@ static void run_on_synthetic_data_id_batch() {
     free_query_engine(&rebuild_engine);
 }
 
+// from here, it is the code for end-to-end-eva
+
+void ingest_and_flush_porto_data_zcurve_mem() {
+    ingest_and_flush_porto_data_zcurve(131072);
+}
+
+void ingest_and_flush_porto_data_time_oid_mem() {
+    ingest_and_flush_porto_data(131072);
+}
+
+void ingest_and_flush_porto_data_zcurve_full() {
+    ingest_and_flush_porto_data_zcurve(277949);
+}
+
+void ingest_and_flush_porto_data_time_oid_full() {
+    ingest_and_flush_porto_data(277949);
+}
+
+void ingest_and_flush_nyc_data_zcurve_mem() {
+    ingest_and_flush_nyc_data_zcurve(131072);
+}
+
+void ingest_and_flush_nyc_data_time_oid_mem() {
+    ingest_and_flush_nyc_data(131072);
+}
+
+void ingest_and_flush_nyc_data_zcurve_full() {
+    //ingest_and_flush_nyc_data_zcurve(2571096);
+    ingest_and_flush_nyc_data_zcurve(2000000);
+}
+
+void exp_spatio_temporal_query_porto() {
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+
+    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_1.query", "r");
+    // read queries
+    int query_num = 4;
+    struct spatio_temporal_range_predicate **predicates = allocate_spatio_temporal_predicate_mem(query_num);
+    read_spatio_temporal_queries_from_csv(query_fp, predicates, query_num);
+
+    clock_t start, end;
+    start = clock();
+    for (int i = 0; i < query_num; i++) {
+        printf("time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", predicates[i]->time_min,
+               predicates[i]->time_max, predicates[i]->lon_min, predicates[i]->lon_max, predicates[i]->lat_min, predicates[i]->lat_max);
+        exp_native_spatio_temporal_host_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
+
+        exp_native_spatio_temporal_armcpu_full_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
+
+        exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
+
+        //exp_native_spatio_temporal_host_device_parallel_batch_v1(predicates[i], &rebuild_engine);
+
+        //printf("selectivity: %f\n", (1.0 * result_count / 30000000.0));
+        printf("\n\n\n");
+    }
+    end = clock();
+    printf("total time: %f\n",(double)(end-start));
+
+    free_spatio_temporal_predicate_mem(predicates, query_num);
+    free_query_engine(&rebuild_engine);
+}
+
+void exp_spatio_temporal_query_nyc() {
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+
+    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_1.query", "r");
+    // read queries
+    int query_num = 6;
+    struct spatio_temporal_range_predicate **predicates = allocate_spatio_temporal_predicate_mem(query_num);
+    read_spatio_temporal_queries_from_csv_nyc(query_fp, predicates, query_num);
+
+    clock_t start, end;
+    start = clock();
+    for (int i = 0; i < query_num; i++) {
+        printf("time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", predicates[i]->time_min,
+               predicates[i]->time_max, predicates[i]->lon_min, predicates[i]->lon_max, predicates[i]->lat_min, predicates[i]->lat_max);
+        exp_native_spatio_temporal_host_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
+
+        exp_native_spatio_temporal_armcpu_full_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
+
+        exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
+
+        //exp_native_spatio_temporal_host_device_parallel_batch_v1(predicates[i], &rebuild_engine);
+
+        //printf("selectivity: %f\n", (1.0 * result_count / 30000000.0));
+        printf("\n\n\n");
+    }
+    end = clock();
+    printf("total time: %f\n",(double)(end-start));
+
+    free_spatio_temporal_predicate_mem(predicates, query_num);
+    free_query_engine(&rebuild_engine);
+}
+
+void exp_id_temporal_query_porto() {
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+
+    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_id.query", "r");
+    // read queries
+    int query_num = 2;
+    struct id_temporal_predicate **predicates = allocate_id_temporal_predicate_mem(query_num);
+    read_id_temporal_queries_from_csv(query_fp, predicates, query_num);
+
+    clock_t start, end;
+    start = clock();
+    for (int i = 0; i < query_num; i++) {
+        printf("oid: %d, time min: %d, time max: %d\n", predicates[i]->oid, predicates[i]->time_min,
+               predicates[i]->time_max);
+        exp_native_id_temporal_host_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
+
+        exp_native_id_temporal_armcpu_full_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
+
+        exp_native_id_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
+
+        //exp_native_spatio_temporal_host_device_parallel_batch_v1(predicates[i], &rebuild_engine);
+
+        //printf("selectivity: %f\n", (1.0 * result_count / 30000000.0));
+        printf("\n\n\n");
+    }
+    end = clock();
+    printf("total time: %f\n",(double)(end-start));
+
+    free_id_temporal_predicate_mem(predicates, query_num);
+    free_query_engine(&rebuild_engine);
+}
+
+void exp_id_temporal_query_nyc() {
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+
+    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_id.query", "r");
+    // read queries
+    int query_num = 2;
+    struct id_temporal_predicate **predicates = allocate_id_temporal_predicate_mem(query_num);
+    read_id_temporal_queries_from_csv_nyc(query_fp, predicates, query_num);
+
+    clock_t start, end;
+    start = clock();
+    for (int i = 0; i < query_num; i++) {
+        printf("oid: %d, time min: %d, time max: %d\n", predicates[i]->oid, predicates[i]->time_min,
+               predicates[i]->time_max);
+        exp_native_id_temporal_host_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
+
+        exp_native_id_temporal_armcpu_full_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
+
+        exp_native_id_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        printf("\n");
+
+        //exp_native_spatio_temporal_host_device_parallel_batch_v1(predicates[i], &rebuild_engine);
+
+        //printf("selectivity: %f\n", (1.0 * result_count / 30000000.0));
+        printf("\n\n\n");
+    }
+    end = clock();
+    printf("total time: %f\n",(double)(end-start));
+
+    free_id_temporal_predicate_mem(predicates, query_num);
+    free_query_engine(&rebuild_engine);
+}
 
 int main(void) {
     // block pointer: [32767], time min: 7372575, time max: 7372799
@@ -1204,15 +1467,39 @@ int main(void) {
     // block pointer: [1048575], time min: 235929375, time max: 235929599
     // 4G: 1048576  2G: 524288  1G: 262144  512MB: 131072   256MB: 65536    128MB:32768
     //ingest_and_flush_synthetic_data(131072);
-    run_on_synthetic_data_multithread();
+    //run_on_synthetic_data_multithread();
     //run_on_synthetic_data();
     //run_on_synthetic_data_batch();
 
+
+
     //ingest_and_flush_porto_data(131072);
-    //ingest_and_flush_porto_data_zcurve(131072);
+    //ingest_and_flush_porto_data_zcurve(1048576);
     //run_on_porto_data_multithread_batch();
     //run_on_porto_data_multithread();
 
     //ingest_and_flush_synthetic_data_large(524288, 6);
     //print_large_file_info();
+
+    //ingest_and_flush_nyc_data_zcurve(1048576 * 2);
+
+    //ingest_and_flush_porto_data_zcurve_full();
+
+    //ingest_and_flush_porto_data_zcurve_mem();
+    //ingest_and_flush_porto_data_time_oid_mem();
+    //exp_id_temporal_query_porto();
+    //exp_spatio_temporal_query_porto();
+
+    //ingest_and_flush_nyc_data_time_oid_mem();
+    //ingest_and_flush_nyc_data_zcurve_mem();
+    //exp_spatio_temporal_query_nyc();
+    //exp_id_temporal_query_nyc();
+
+    //ingest_and_flush_porto_data_zcurve_full();
+    //ingest_and_flush_porto_data_time_oid_full();
+    //exp_spatio_temporal_query_porto();
+    //exp_id_temporal_query_porto();
+
+    ingest_and_flush_nyc_data_zcurve_full();
+    //exp_spatio_temporal_query_nyc();
 }
