@@ -184,14 +184,44 @@ void flush_traj_storage(struct traj_storage *storage) {
     struct my_file *fp = storage->my_fp;
     int fs_mode = storage->my_fp->fs_mode;
     int count = 0;
-    for (int i = 0; i <= storage->current_index; i++) {
+    /*for (int i = 0; i <= storage->current_index; i++) {
         void *block_ptr = storage->traj_blocks_base[i];
         my_fseek(fp, i * TRAJ_BLOCK_SIZE, fs_mode);
         int result_size = my_fwrite(block_ptr, 1, TRAJ_BLOCK_SIZE, fp, fs_mode);
         if (result_size > 0) {
             count++;
         }
+    }*/
+
+
+    int batch_block_size = 1024;
+    void *buffer = malloc(batch_block_size * TRAJ_BLOCK_SIZE);
+    long long i;
+    for (i = 0; i <= storage->current_index; i++) {
+        void *block_ptr = storage->traj_blocks_base[i];
+        int buffer_offset = (int)i % batch_block_size;
+        memcpy(buffer + buffer_offset * TRAJ_BLOCK_SIZE, block_ptr, TRAJ_BLOCK_SIZE);
+
+        if ((i+1) % batch_block_size == 0) {
+            my_fseek(fp, i * TRAJ_BLOCK_SIZE, fs_mode);
+            int result_size = my_fwrite(buffer, batch_block_size, TRAJ_BLOCK_SIZE, fp, fs_mode);
+            if (result_size > 0) {
+                count+=batch_block_size;
+            }
+            memset(buffer, 0, batch_block_size * TRAJ_BLOCK_SIZE);
+        }
     }
+
+
+    if ((storage->current_index+1) % batch_block_size != 0) {
+        int file_offset = storage->current_index - ((storage->current_index + 1) % batch_block_size) + 1;
+        int block_num = (storage->current_index + 1) % batch_block_size;
+        my_fseek(fp, file_offset * TRAJ_BLOCK_SIZE, fs_mode);
+        my_fwrite(buffer, block_num, TRAJ_BLOCK_SIZE, fp, fs_mode);
+        count + block_num;
+    }
+    free(buffer);
+
     debug_print("[flush_traj_storage] expected flushed data block count: %d\n", storage->current_index+1);
     debug_print("[flush_traj_storage] total flushed data block count: %d\n", count);
 }

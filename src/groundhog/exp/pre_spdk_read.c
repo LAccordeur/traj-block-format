@@ -288,7 +288,7 @@ hello_world(void)
             size_t				sz;
             init_sequence(&sequence,  read_block_size * 256, i+1, ns_entry, &sz);
             //printf("i: %d\n", i);
-            rc = spdk_nvme_ns_cmd_read(ns_entry->ns, ns_entry->qpair, sequence.buf,
+            rc = spdk_nvme_ns_cmd_read_no_result(ns_entry->ns, ns_entry->qpair, sequence.buf,
                                         i*256, /* LBA start */
                                        256, /* number of LBAs */
                                        read_complete, &sequence, 0);

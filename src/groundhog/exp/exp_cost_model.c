@@ -197,6 +197,61 @@ void exp_computation() {
     printf("result count: %d, total computation time: %f\n", result_count, (double)(stop - start));
 }
 
+void exp_computation_motivation() {
+
+    srand(time(NULL));   // Initialization, should only be called once.
+
+
+    int record_num = 29491190;
+    int result_count = 0;
+    struct traj_point *points = malloc(sizeof(struct traj_point) * record_num);
+    for (int i = 0; i < record_num; i++) {
+        //int random_value = rand() % record_num;
+        int random_value = i;
+        points[i].normalized_latitude = random_value;
+        points[i].normalized_longitude = random_value;
+        points[i].timestamp_sec = random_value;
+        points[i].oid = random_value;
+        //printf("value: %d\n", random_value);
+    }
+    struct spatio_temporal_range_predicate *predicate = malloc(sizeof(*predicate));
+    int predicate_value = 2949119*10;
+    predicate->lat_max = predicate_value;
+    predicate->lat_min = 0;
+    predicate->lon_max = predicate_value;
+    predicate->lon_min = 0;
+    predicate->time_max = predicate_value;
+    predicate->time_min = 0;
+
+    clock_t start, stop;
+
+    void* output_buffer = malloc(sizeof(struct traj_point) * record_num);
+    struct traj_point* traj_output = output_buffer;
+    //struct traj_point *point = &points[0];
+    start = clock();
+    for (int k = 0; k < record_num; k++) {
+        struct traj_point *point = &points[k];
+        if (predicate->lon_min <= point->normalized_longitude
+            && predicate->lon_max >= point->normalized_longitude
+            && predicate->lat_min <= point->normalized_latitude
+            && predicate->lat_max >= point->normalized_latitude
+            && predicate->time_min <= point->timestamp_sec
+            && predicate->time_max >= point->timestamp_sec) {
+
+            traj_output[result_count].oid = point->oid;
+            traj_output[result_count].normalized_longitude = point->normalized_longitude;
+            traj_output[result_count].normalized_latitude = point->normalized_latitude;
+            traj_output[result_count].timestamp_sec = point->timestamp_sec;
+            result_count++;
+
+        }
+
+    }
+    stop = clock();
+
+    printf("result count: %d, total computation time: %f\n", result_count, (double)(stop - start));
+}
+
 void exp_computation_host_cpu() {
 
     srand(123);   // Initialization, should only be called once.
@@ -855,15 +910,15 @@ void verify_cost_model() {
     int result_count = 0;
     int block_num = 131072;
     void* buf_ptr_vec[block_num];
-    prepare_data_porto_zcurve(block_num, buf_ptr_vec);
+    prepare_data(block_num, buf_ptr_vec);
 
-    //struct spatio_temporal_range_predicate predicate = {0 ,2949119 * 6, 0, 29491199, 0, 29491199};
-    struct spatio_temporal_range_predicate predicate = {normalize_longitude(-8.612973), normalize_longitude(-8.512973) ,
+    struct spatio_temporal_range_predicate predicate = {0 ,2949119 * 1, 0, 29491199, 0, 29491199};
+    /*struct spatio_temporal_range_predicate predicate = {normalize_longitude(-8.612973), normalize_longitude(-8.512973) ,
                                                         normalize_latitude(41.150043), normalize_latitude(41.250043), 1372670836, 1373275636};
-
+*/
     clock_t start = clock();
     for (int i = 0; i < block_num; i++) {
-         result_count += spatio_temporal_query_raw_trajectory_block_new(buf_ptr_vec[i], &predicate);
+         result_count += spatio_temporal_query_raw_trajectory_block(buf_ptr_vec[i], &predicate);
     }
     clock_t end = clock();
     printf("result count: %d, time: %f s\n", result_count, (double )(end - start)/CLOCKS_PER_SEC);
@@ -876,7 +931,7 @@ void verify_cost_model_id() {
     void* buf_ptr_vec[block_num];
     prepare_data(block_num, buf_ptr_vec);
 
-    struct id_temporal_predicate predicate = {12, 0 ,2949119 * 9};
+    struct id_temporal_predicate predicate = {12, 0 ,2949119 * 1};
 
     clock_t start = clock();
     for (int i = 0; i < block_num; i++) {
@@ -961,6 +1016,6 @@ void get_estimated_cost_device_id() {
 }
 
 int main(void) {
-    verify_cost_model_id();
+    verify_cost_model();
     return 0;
 }

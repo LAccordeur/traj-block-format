@@ -6,7 +6,7 @@
 #include "groundhog/static_spdk_fs_layer.h"
 #include "spdk/nvme_zns.h"
 #include <time.h>
-
+#include "groundhog/config.h"
 #define MAX_TRANSFER_SECTOR_COUNT 256
 
 struct callback_sequence {
@@ -59,7 +59,7 @@ void init_and_mk_fs_for_traj(bool is_flushed) {
 
 void spdk_flush_static_fs_meta_for_traj() {
     spdk_flush_static_fs_meta(&spdk_static_fs_layer_for_traj);
-    //cleanup_spdk_nvme_driver(&spdk_driver_desc);
+    cleanup_spdk_nvme_driver(&spdk_driver_desc);
 }
 
 void print_spdk_static_fs_meta_for_traj() {
@@ -575,10 +575,17 @@ size_t spdk_static_fs_fread_batch(int batch_size, const void **data_ptr_vec, con
 
         total_sector_count += sector_count;
 
-        rc = spdk_nvme_ns_cmd_read(ns_entry->ns, ns_entry->qpair, sequences[i].buf,
-                                   lba_start,
-                                   sector_count,
-                                   read_complete, (void *) &sequences[i], 0);
+        if (WITH_RESULT) {
+            rc = spdk_nvme_ns_cmd_read(ns_entry->ns, ns_entry->qpair, sequences[i].buf,
+                                       lba_start,
+                                       sector_count,
+                                       read_complete, (void *) &sequences[i], 0);
+        } else {
+            rc = spdk_nvme_ns_cmd_read_no_result(ns_entry->ns, ns_entry->qpair, sequences[i].buf,
+                                       lba_start,
+                                       sector_count,
+                                       read_complete, (void *) &sequences[i], 0);
+        }
 
         if (rc != 0) {
             fprintf(stderr, "starting read I/O failed\n");

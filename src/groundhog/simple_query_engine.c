@@ -495,8 +495,8 @@ void ingest_synthetic_data_via_time_partition(struct simple_query_engine *engine
 
     for (int i = 0; i < block_num; i++) {
         struct traj_point **points = allocate_points_memory(points_num);
-        //generate_synthetic_points(points, i*points_num, points_num);
-        generate_synthetic_random_points(points, i*points_num, points_num, 29491199);
+        generate_synthetic_points(points, i*points_num, points_num);
+        //generate_synthetic_random_points(points, i*points_num, points_num, 29491199);
         // convert and put this data to traj storage
         void *data = malloc(TRAJ_BLOCK_SIZE);
         sort_traj_points(points, points_num);
@@ -523,9 +523,9 @@ void ingest_synthetic_data_via_time_partition(struct simple_query_engine *engine
 
         free_points_memory(points, points_num);
 
-        if (i*points_num>25559039) {
+        /*if (i*points_num>25559039) {
             break;
-        }
+        }*/
     }
     debug_print("[ingest_synthetic_data_via_time_partition] num of ingesting data points: %d\n", points_num * (block_num - 1));
 }
@@ -1321,6 +1321,10 @@ static int spatio_temporal_query_raw_trajectory_block(void* data_block, struct s
     struct traj_point *result_buffer = (struct traj_point *)malloc(TRAJ_BLOCK_SIZE);
 
     int traj_point_size = get_traj_point_size();
+    /*if (block_header.seg_count == -1) {
+        //printf("bad block\n");
+        return 0; // bad block
+    }*/
     struct seg_meta meta_array[block_header.seg_count];
     parse_traj_block_for_seg_meta_section(data_block, meta_array, block_header.seg_count);
     for (int j = 0; j < block_header.seg_count; j++) {
@@ -3414,7 +3418,10 @@ run_spatio_temporal_query_device_batch(struct spatio_temporal_range_predicate *p
             start = clock();
             do_isp_for_trajectory_data_batch(batch_size, data_storage, result_buffer_vec, result_buffer_size_vec, isp_desc_vec, 0);
             end = clock();
-            //printf("each function call time:%d\n",(end - start));
+            /*for (int o = 0; o < batch_size; o++) {
+                print_isp_descriptor(isp_desc_vec[o]);
+            }
+            printf("each function call time:%d\n",(end - start));*/
             total_batch_func_num++;
             for (int k = 0; k < batch_size; k++) {
                 void* batch_base = result_buffer_vec[k];
