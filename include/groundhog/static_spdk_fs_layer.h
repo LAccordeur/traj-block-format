@@ -23,6 +23,9 @@
  *
  *  every time when reading data, you should reset the read offset via fseek()
  *  write_offset is controlled by the program itself
+ *
+ *  the meaning of prefix in the function name: "multi" means that we pass multiple lba address information via isp descriptor;
+ *  "batch" means that we submit multiple asyn i/o to ssd
  */
 #define DATA_FILENAME "trajectory.data"
 #define DATA_FILE_OFFSET 1
@@ -92,8 +95,26 @@ size_t spdk_static_fs_fwrite(const void *data_ptr, size_t size, struct spdk_stat
 
 size_t spdk_static_fs_fread(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc);
 
+/**
+ * send multiple read requests asynchronously
+ * @param batch_size
+ * @param data_ptr_vec
+ * @param logical_sector_start
+ * @param size_vec
+ * @param file_desc
+ * @return
+ */
 size_t spdk_static_fs_fread_batch(int batch_size, const void **data_ptr_vec, const int *logical_sector_start, const size_t *size_vec, struct spdk_static_file_desc *file_desc);
 
+
+/**
+ * read multiple data sectors specified in the isp_desc
+ * @param data_ptr
+ * @param size
+ * @param file_desc
+ * @param isp_desc
+ * @return
+ */
 size_t spdk_static_fs_fread_multi_addr(const void *data_ptr, size_t size, struct spdk_static_file_desc *file_desc, struct isp_descriptor *isp_desc);
 
 /**

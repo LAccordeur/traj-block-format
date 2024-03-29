@@ -102,9 +102,17 @@ int spatio_temporal_query_without_pushdown_multi_addr(struct simple_query_engine
 
 int spatio_temporal_query_without_pushdown_multi_addr_batch(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index);
 
+int spatio_temporal_count_query_without_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate);
+
 int spatio_temporal_query_without_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index);
 
 int spatio_temporal_query_with_full_pushdown(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index);
+
+int spatio_temporal_count_query_with_pushdown_batch_naive(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate);
+
+        int spatio_temporal_count_query_with_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate);
+
+int spatio_temporal_query_with_full_pushdown_batch_naive(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index);
 
 int spatio_temporal_query_with_full_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index);
 
@@ -125,6 +133,8 @@ int id_temporal_query_with_full_pushdown_fpga(struct simple_query_engine *engine
 int id_temporal_query_without_pushdown(struct simple_query_engine *engine, struct id_temporal_predicate *predicate, bool enable_host_index);
 
 int id_temporal_query_without_pushdown_batch(struct simple_query_engine *engine, struct id_temporal_predicate *predicate, bool enable_host_index);
+
+int id_temporal_query_with_full_pushdown_batch_naive(struct simple_query_engine *engine, struct id_temporal_predicate *predicate, bool enable_host_index);
 
 int id_temporal_query_with_full_pushdown_batch(struct simple_query_engine *engine, struct id_temporal_predicate *predicate, bool enable_host_index);
 

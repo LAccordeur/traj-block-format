@@ -126,3 +126,6 @@ target_link_libraries(exp_native_host_and_device_large ${SPDK_LIBS} ${PROJECT_SO
 add_executable(exp_traj_format src/groundhog/exp/exp_traj_format.c)
 target_link_libraries(exp_traj_format ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
 
+add_executable(exp_spdk_exe_isp_count_query src/groundhog/exp/exp_spdk_exe_isp_count_query.c)
+target_link_libraries(exp_spdk_exe_isp_count_query ${SPDK_LIBS} ${PROJECT_SOURCE_DIR}/cmake-build-debug/libtraj_block_format.a)
+
