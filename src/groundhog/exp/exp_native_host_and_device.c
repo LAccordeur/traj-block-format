@@ -1948,6 +1948,18 @@ static int exp_native_spatio_temporal_knn_host_batch_v1(struct spatio_temporal_k
     return engine_result;
 }
 
+static int exp_native_spatio_temporal_knn_armcpu_pushdown_batch_v1(struct spatio_temporal_knn_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+
+    clock_t start, end;
+    start = clock();
+    int engine_result = spatio_temporal_knn_query_with_pushdown_batch(rebuild_engine, predicate, enable_host_index);
+    end = clock();
+    printf("[isp cpu] query time (total time, including all): %f\n", (double )(end - start));
+    printf("engine result: %d\n", engine_result);
+
+    return engine_result;
+}
+
 void exp_spatio_temporal_knn_query_porto_scan() {
     init_and_mk_fs_for_traj(true);
     print_spdk_static_fs_meta_for_traj();
@@ -1967,8 +1979,10 @@ void exp_spatio_temporal_knn_query_porto_scan() {
     start = clock();
     struct traj_point point = {1, 1, normalize_longitude(-8.610291),
                                normalize_latitude(41.140746)};
-    struct spatio_temporal_knn_predicate predicate = {point, 100};
-    exp_native_spatio_temporal_knn_host_batch_v1(&predicate, &rebuild_engine);
+    struct spatio_temporal_knn_predicate predicate = {point, 1000};
+    //exp_native_spatio_temporal_knn_host_batch_v1(&predicate, &rebuild_engine);
+
+    exp_native_spatio_temporal_knn_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine);
     end = clock();
     printf("total time: %f\n",(double)(end-start));
 

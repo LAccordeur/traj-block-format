@@ -134,6 +134,10 @@ run_id_temporal_query_host_multi_addr_batch(struct id_temporal_predicate *predic
                                             int block_logical_addr_count,
                                             int *block_logical_addr_vec);
 
+int
+run_spatio_temporal_knn_query_device_batch(struct spatio_temporal_knn_predicate *predicate, struct traj_storage *data_storage,
+                                           int block_logical_addr_count, int *block_logical_addr_vec) ;
+
 
 static int check_oid_exist(const int *oids, int array_size, int checked_oid) {
     for (int i = 0; i < array_size; i++) {
@@ -983,6 +987,20 @@ static void assemble_isp_desc_for_spatial_temporal_count(struct isp_descriptor *
     isp_desc->lat_max = predicate->lat_max;
 }
 
+static void assemble_isp_desc_for_spatial_temporal_knn(struct isp_descriptor *isp_desc, struct spatio_temporal_knn_predicate *predicate, int estimated_result_block_num, struct lba *lba_vec, int lba_vec_size) {
+    isp_desc->isp_type = 6;
+    isp_desc->estimated_result_page_num = estimated_result_block_num;
+    isp_desc->oid = predicate->k;
+    isp_desc->lba_array = lba_vec;
+    isp_desc->lba_count = lba_vec_size;
+    isp_desc->time_min = predicate->query_point.timestamp_sec;
+    isp_desc->time_max = 0;
+    isp_desc->lon_min = predicate->query_point.normalized_longitude;
+    isp_desc->lon_max = 0;
+    isp_desc->lat_min = predicate->query_point.normalized_latitude;
+    isp_desc->lat_max = 0;
+}
+
 static void assemble_isp_desc_without_comp(struct isp_descriptor *isp_desc, int estimated_result_block_num, struct lba *lba_vec, int lba_vec_size) {
     isp_desc->isp_type = 9;
     isp_desc->estimated_result_page_num = estimated_result_block_num;
@@ -1623,6 +1641,7 @@ static int id_temporal_query_raw_trajectory_block_without_meta_filtering(void* d
     return result_count;
 }
 
+// not used
 static int spatio_temporal_query_isp_output_block(void* data_block, struct spatio_temporal_range_predicate *predicate) {
     int result_count = 0;
     int points_num = parse_points_num_from_output_buffer_page(data_block);
@@ -1650,6 +1669,7 @@ static int spatio_temporal_query_isp_output_block(void* data_block, struct spati
     return result_count;
 }
 
+// not used
 static int id_temporal_query_isp_output_block(void* data_block, struct id_temporal_predicate *predicate) {
     int result_count = 0;
     int points_num = parse_points_num_from_output_buffer_page(data_block);
@@ -5836,7 +5856,7 @@ static int spatio_temporal_knn_query_raw_trajectory_block(void* data_block, stru
                 struct traj_point *point = &point_ptr[k];
                 long distance = cal_points_distance(&(predicate->query_point), point);
                 if (distance < result_buffer->max_distance) {
-                    struct result_item item = {point, distance};
+                    struct result_item item = {*point, distance};
                     add_item_to_buffer(result_buffer, &item);
                     result_count++;
 
@@ -5947,8 +5967,10 @@ run_knn_query_in_host_batch(struct spatio_temporal_knn_predicate *predicate, str
         free(result_buffer_vec[k]);
     }
 
+    combine_and_sort(&knn_result_buffer);
     end = clock();
     print_result_buffer(&knn_result_buffer);
+
     free_points_buffer(points_buffer_size);
     free_knn_result_buffer(&knn_result_buffer);
     printf("[host batch] pure read time: %f\n",(double)(pure_read));
@@ -5959,4 +5981,181 @@ run_knn_query_in_host_batch(struct spatio_temporal_knn_predicate *predicate, str
 }
 
 
+int spatio_temporal_knn_query_with_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_knn_predicate *predicate, bool enable_host_index) {
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    // calculate the matched block num
+    int block_logical_addr_count = 0;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        if (enable_host_index) {
+            block_logical_addr_count++;
+        } else {
+            block_logical_addr_count++;
+        }
+    }
+
+    if (block_logical_addr_count == 0) {
+        return 0;
+    }
+
+    // get the match block id vector
+    //int block_logical_addr_vec[block_logical_addr_count];   // TODO use malloc for large vector
+    int *block_logical_addr_vec = malloc(block_logical_addr_count * sizeof(int));
+
+    int addr_vec_index = 0;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        if (enable_host_index) {
+            block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
+            addr_vec_index++;
+        } else {
+            block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
+            addr_vec_index++;
+        }
+    }
+
+
+    printf("[isp cpu batch] read block num: %d\n", block_logical_addr_count);
+    // run query
+    int result_count = run_spatio_temporal_knn_query_device_batch(predicate, data_storage, block_logical_addr_count,
+                                                   block_logical_addr_vec);
+
+    free(block_logical_addr_vec);
+    return result_count;
+}
+
+static int spatio_temporal_knn_query_isp_blocks(void* data_blocks, struct spatio_temporal_knn_predicate *predicate, struct knn_result_buffer *result_buffer) {
+    int result_count = 0;
+    memcpy(&result_count, data_blocks, 4);
+
+    struct result_item *items_base = (struct result_item *)((char *)data_blocks + 4);   // output format is good, so do not need deserialization
+
+    for (int i = 0; i < result_count; i++) {
+        struct result_item tmp = items_base[i];
+        //printf("oid: %d, lon: %d, lat: %d, time: %d\n", tmp.oid, tmp.normalized_longitude, tmp.normalized_latitude, tmp.timestamp_sec);
+        add_item_to_buffer(result_buffer, &tmp);
+
+    }
+    return result_count;
+}
+
+int
+run_spatio_temporal_knn_query_device_batch(struct spatio_temporal_knn_predicate *predicate, struct traj_storage *data_storage,
+                                       int block_logical_addr_count, int *block_logical_addr_vec) {
+    int result_count = 0;
+    int total_batch_func_num = 0;
+
+    clock_t start, end, pure_read;
+    pure_read = 0;
+    clock_t start_all, end_all;
+    int total_result_block_num = 0;
+    start_all = clock();
+    fill_points_buffer(points_buffer_size);
+
+    struct knn_result_buffer knn_buffer;
+    init_knn_result_buffer(predicate->k, &knn_buffer);
+
+    // prepare batch parameters
+    int batch_size = REQUEST_BATCH_SIZE; //  fix bug here -> fixed: caused by the same request used in the batch using the same lba_array (before, we do not use malloc for lba_array)
+    void* result_buffer_vec[batch_size];
+    size_t result_buffer_size_vec[batch_size];
+    struct isp_descriptor *isp_desc_vec[batch_size];
+    struct lba *lba_vec_ptr[batch_size];
+    int batch_count = 0;
+
+    for (int i = 0; i < block_logical_addr_count; i += 256) {
+
+        int block_addr_vec_size = block_logical_addr_count - i > 256 ? 256 : block_logical_addr_count - i;
+        int estimated_result_size = predicate->k * sizeof(struct result_item) + 4;
+
+
+        if (estimated_result_size % 0x1000 != 0) {
+            estimated_result_size = ((estimated_result_size / 0x1000) + 1) * 0x1000;
+        }
+        int estimated_result_block_num = estimated_result_size / 0x1000;
+        //int estimated_result_block_num = 1;
+        total_result_block_num += estimated_result_block_num;
+
+
+        void* result_buffer = malloc(estimated_result_size);
+
+        int block_meta_vec_size = calculate_aggregate_block_vec_size(&block_logical_addr_vec[i], block_addr_vec_size);
+        struct continuous_block_meta block_meta_vec[block_meta_vec_size];
+        aggregate_blocks(&block_logical_addr_vec[i], block_addr_vec_size, block_meta_vec, block_meta_vec_size);
+
+        struct isp_descriptor *isp_desc = malloc(sizeof(struct isp_descriptor));
+        struct lba *lba_vec = malloc(sizeof(struct lba) * block_meta_vec_size);
+        assemble_lba_vec_via_block_meta(lba_vec, DATA_FILE_OFFSET, block_meta_vec, block_meta_vec_size);
+        assemble_isp_desc_for_spatial_temporal_knn(isp_desc, predicate, estimated_result_block_num, lba_vec, block_meta_vec_size);
+
+        //start = clock();
+        result_buffer_vec[batch_count] = result_buffer;
+        result_buffer_size_vec[batch_count] = estimated_result_size;
+        isp_desc_vec[batch_count] = isp_desc;
+        lba_vec_ptr[batch_count] = lba_vec;
+
+
+        batch_count++;
+        if (batch_count % batch_size == 0) {
+            start = clock();
+            do_isp_for_trajectory_data_batch(batch_size, data_storage, result_buffer_vec, result_buffer_size_vec, isp_desc_vec, 0);
+            end = clock();
+            total_batch_func_num++;
+            for (int k = 0; k < batch_size; k++) {
+                void* batch_base = result_buffer_vec[k];
+
+                result_count += spatio_temporal_knn_query_isp_blocks(batch_base, predicate, &knn_buffer);
+            }
+            batch_count = 0;
+
+            pure_read += (end - start);
+            for (int m = 0; m < batch_size; m++) {
+                free(result_buffer_vec[m]);
+                free(isp_desc_vec[m]);
+                free(lba_vec_ptr[m]);
+            }
+
+        }
+
+    }
+    // handle the last batch (less than batch size)
+    start = clock();
+    do_isp_for_trajectory_data_batch(batch_count, data_storage, result_buffer_vec, result_buffer_size_vec, isp_desc_vec, 0);
+    end = clock();
+    total_batch_func_num++;
+    for (int k = 0; k < batch_count; k++) {
+        void* batch_base = result_buffer_vec[k];
+
+        result_count += spatio_temporal_knn_query_isp_blocks(batch_base, predicate, &knn_buffer);
+    }
+
+    pure_read += (end - start);
+    for (int m = 0; m < batch_count; m++) {
+        free(result_buffer_vec[m]);
+        free(isp_desc_vec[m]);
+        free(lba_vec_ptr[m]);
+    }
+
+
+    combine_and_sort(&knn_buffer);
+
+    for (int i = 0; i < knn_buffer.current_buffer_size; i++) {
+        struct result_item item = knn_buffer.result_buffer_k[i];
+        printf("oid: %d, dist: %d\n", item.point.oid, item.distance);
+    }
+    printf("result k value: %d\n", knn_buffer.current_buffer_size);
+
+    free_knn_result_buffer(&knn_buffer);
+    free_points_buffer(points_buffer_size);
+    end_all = clock();
+    printf("batch function call num: %d\n", total_batch_func_num);
+    printf("[isp cpu batch] estimated result block number: %d\n", total_result_block_num);
+    printf("[isp cpu batch] pure read time: %f\n",(double)pure_read);
+    printf("[isp cpu batch] query time (including estimation): %f\n", (double)(end_all - start_all));
+
+    return result_count;
+}
 

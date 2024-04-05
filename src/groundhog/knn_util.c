@@ -378,10 +378,13 @@ long cal_minmax_distance(struct traj_point *point, struct seg_meta *mbr) {
 }
 
 void print_result_buffer(struct knn_result_buffer *buffer) {
+    printf("total num: %d\n", buffer->current_buffer_size);
     for (int i = 0; i < buffer->current_buffer_size; i++) {
         struct result_item item = buffer->result_buffer_k[i];
+        /*printf("oid: %d, lon: %d, lat: %d, time: %d, dist: %d\n",
+               item.point->oid, item.point->normalized_longitude, item.point->normalized_latitude, item.point->timestamp_sec, item.distance);*/
         printf("oid: %d, lon: %d, lat: %d, time: %d, dist: %d\n",
-               item.point->oid, item.point->normalized_longitude, item.point->normalized_latitude, item.point->timestamp_sec, item.distance);
+               item.point.oid, item.point.normalized_longitude, item.point.normalized_latitude, item.point.timestamp_sec, item.distance);
     }
 }
 

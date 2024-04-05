@@ -8,7 +8,7 @@ extern "C" {
 #include "groundhog/porto_dataset_reader.h"
 }
 
-int point_num = 40000;
+int point_num = 100000;
 int k_value = 1000;
 int time_dist_pred = 60 * 60;
 
@@ -33,7 +33,7 @@ TEST(knn_util_test, knn_query_baseline) {
     for (int i = 0; i < point_num_in_buffer; i++) {
         long distance = cal_points_distance(query_point, points[i]);
         if (distance < result_buffer.max_distance) {
-            struct result_item item = {points[i], distance};
+            struct result_item item = {*points[i], distance};
             t1 = clock();
             add_item_to_buffer_baseline(&result_buffer, &item);
             t2 = clock();
@@ -73,7 +73,7 @@ TEST(knn_util_test, knn_query) {
     for (int i = 0; i < point_num_in_buffer; i++) {
         long distance = cal_points_distance(query_point, points[i]);
         if (distance < result_buffer.max_distance) {
-            struct result_item item = {points[i], distance};
+            struct result_item item = {*points[i], distance};
             t1 = clock();
             add_item_to_buffer(&result_buffer, &item);
             t2 = clock();
@@ -187,7 +187,7 @@ TEST(knn_util_test, sortbuffer) {
     for (int i = 0; i < 10; i++) {
         int distance = 10 - i;
 
-        struct result_item item = {&point, distance};
+        struct result_item item = {point, distance};
         result_buffer.result_buffer_k[i] = item;
         result_buffer.current_buffer_size++;
 

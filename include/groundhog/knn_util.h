@@ -23,7 +23,7 @@ struct runtime_statistics {
 };
 
 struct result_item {
-    struct traj_point *point;
+    struct traj_point point;
     long distance;
 };
 
