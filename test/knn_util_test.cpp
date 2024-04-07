@@ -117,7 +117,7 @@ TEST(knn_util_test, knnjoin_query_baseline) {
             long distance = cal_points_distance(points[i], points2[j]);
             long time_dist = points[i]->timestamp_sec > points2[j]->timestamp_sec ? (points[i]->timestamp_sec - points2[j]->timestamp_sec) : (points2[j]->timestamp_sec - points[i]->timestamp_sec);
             if (time_dist > time_dist_pred && distance < result_buffer.max_distance) {
-                struct knnjoin_result_item item = {points[i], points2[j], distance};
+                struct knnjoin_result_item item = {*points[i], *points2[j], distance};
                 t1 = clock();
                 add_item_to_knnjoin_buffer_baseline(&result_buffer, &item);
                 t2 = clock();
@@ -161,7 +161,7 @@ TEST(knn_util_test, knnjoin_query) {
             long distance = cal_points_distance(points[i], points2[j]);
             long time_dist = points[i]->timestamp_sec > points2[j]->timestamp_sec ? (points[i]->timestamp_sec - points2[j]->timestamp_sec) : (points2[j]->timestamp_sec - points[i]->timestamp_sec);
             if (time_dist > time_dist_pred && distance < result_buffer.max_distance) {
-                struct knnjoin_result_item item = {points[i], points2[j], distance};
+                struct knnjoin_result_item item = {*points[i], *points2[j], distance};
                 t1 = clock();
                 add_item_to_knnjoin_buffer(&result_buffer, &item);
                 t2 = clock();

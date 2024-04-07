@@ -1990,6 +1990,48 @@ void exp_spatio_temporal_knn_query_porto_scan() {
     free_query_engine(&rebuild_engine);
 }
 
+
+static int exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(struct spatio_temporal_knn_join_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+
+    clock_t start, end;
+    start = clock();
+    int engine_result = spatio_temporal_knn_join_query_without_pushdown_batch(rebuild_engine, predicate);
+    end = clock();
+    printf("[isp cpu] query time (total time, including all): %f\n", (double )(end - start));
+    printf("engine result: %d\n", engine_result);
+
+    return engine_result;
+}
+
+void exp_spatio_temporal_knn_join_query_porto_scan() {
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+
+
+
+    clock_t start, end;
+    start = clock();
+
+    struct spatio_temporal_knn_join_predicate predicate = {0,0, 10};
+    exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine);
+
+
+    end = clock();
+    printf("total time: %f\n",(double)(end-start));
+
+
+    free_query_engine(&rebuild_engine);
+}
+
 int main(void) {
     // block pointer: [32767], time min: 7372575, time max: 7372799
     // block pointer: [65535], time min: 14745375, time max: 14745599
@@ -2042,7 +2084,12 @@ int main(void) {
 
 
     //ingest_and_flush_porto_data_zcurve_full();
-    exp_spatio_temporal_knn_query_porto_scan();
+    //exp_spatio_temporal_knn_query_porto_scan();
+
+
+    //ingest_and_flush_porto_data_zcurve_full();
+    //ingest_and_flush_porto_data(1024);
+    exp_spatio_temporal_knn_join_query_porto_scan();
 
     printf("%d\n", calculate_points_num_via_block_size(4096, 4));
 

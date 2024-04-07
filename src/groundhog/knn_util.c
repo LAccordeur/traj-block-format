@@ -214,6 +214,7 @@ void combine_and_sort_knnjoin(struct knnjoin_result_buffer *buffer) {
         tmp_buffer[tmp_buffer_index] = buffer->knnjoin_result_buffer_high_half[i];
         tmp_buffer_index++;
     }
+
     sort_knnjoin_buffer(tmp_buffer, tmp_buffer_size);
 
     int current_size;
@@ -263,8 +264,8 @@ void add_item_to_knnjoin_buffer(struct knnjoin_result_buffer *buffer, struct knn
 
             buffer->statistics.sort_func_call_num++;
         }
-        int medium_distance = buffer->knnjoin_result_buffer_k[buffer->current_buffer_size/2].distance;
-        int item_distance = item->distance;
+        long medium_distance = buffer->knnjoin_result_buffer_k[buffer->current_buffer_size/2].distance;
+        long item_distance = item->distance;
         if (item_distance <= medium_distance) {
             buffer->knnjoin_result_buffer_low_half[buffer->current_buffer_low_half_size] = *item;
             buffer->current_buffer_low_half_size++;
@@ -392,8 +393,8 @@ void print_knnjoin_result_buffer(struct knnjoin_result_buffer *buffer) {
     for (int i = 0; i < buffer->current_buffer_size; i++) {
         struct knnjoin_result_item item = buffer->knnjoin_result_buffer_k[i];
         printf("oid1: %d, lon1: %d, lat1: %d, time1: %d, oid2: %d, lon2: %d, lat2: %d, time2: %d, dist: %d\n",
-               item.point1->oid, item.point1->normalized_longitude, item.point1->normalized_latitude, item.point1->timestamp_sec,
-               item.point2->oid, item.point2->normalized_longitude, item.point2->normalized_latitude, item.point2->timestamp_sec,
+               item.point1.oid, item.point1.normalized_longitude, item.point1.normalized_latitude, item.point1.timestamp_sec,
+               item.point2.oid, item.point2.normalized_longitude, item.point2.normalized_latitude, item.point2.timestamp_sec,
                item.distance);
     }
 }

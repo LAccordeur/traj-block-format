@@ -28,8 +28,8 @@ struct result_item {
 };
 
 struct knnjoin_result_item {
-    struct traj_point *point1;
-    struct traj_point *point2;
+    struct traj_point point1;
+    struct traj_point point2;
     long distance;
 };
 
