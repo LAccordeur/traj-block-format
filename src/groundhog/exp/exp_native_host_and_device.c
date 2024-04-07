@@ -1991,11 +1991,23 @@ void exp_spatio_temporal_knn_query_porto_scan() {
 }
 
 
-static int exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(struct spatio_temporal_knn_join_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+static int exp_native_spatio_temporal_knn_join_host_batch_v1(struct spatio_temporal_knn_join_predicate *predicate, struct simple_query_engine *rebuild_engine) {
 
     clock_t start, end;
     start = clock();
     int engine_result = spatio_temporal_knn_join_query_without_pushdown_batch(rebuild_engine, predicate);
+    end = clock();
+    printf("[host batch] query time (total time, including all): %f\n", (double )(end - start));
+    printf("engine result: %d\n", engine_result);
+
+    return engine_result;
+}
+
+static int exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(struct spatio_temporal_knn_join_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+
+    clock_t start, end;
+    start = clock();
+    int engine_result = spatio_temporal_knn_join_query_with_pushdown_batch(rebuild_engine, predicate);
     end = clock();
     printf("[isp cpu] query time (total time, including all): %f\n", (double )(end - start));
     printf("engine result: %d\n", engine_result);
@@ -2021,9 +2033,10 @@ void exp_spatio_temporal_knn_join_query_porto_scan() {
     clock_t start, end;
     start = clock();
 
-    struct spatio_temporal_knn_join_predicate predicate = {0,0, 10};
-    exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine);
+    struct spatio_temporal_knn_join_predicate predicate = {0,0, 100};
+    //exp_native_spatio_temporal_knn_join_host_batch_v1(&predicate, &rebuild_engine);
 
+    exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine);
 
     end = clock();
     printf("total time: %f\n",(double)(end-start));

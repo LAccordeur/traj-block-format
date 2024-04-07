@@ -206,4 +206,5 @@ int spatio_temporal_knn_query_with_pushdown_batch(struct simple_query_engine *en
  */
 int spatio_temporal_knn_join_query_without_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_knn_join_predicate *predicate);
 
+int spatio_temporal_knn_join_query_with_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_knn_join_predicate *predicate);
 #endif //TRAJ_BLOCK_FORMAT_SIMPLE_QUERY_ENGINE_H
