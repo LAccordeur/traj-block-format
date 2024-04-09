@@ -226,7 +226,7 @@ void flush_traj_storage(struct traj_storage *storage) {
         memcpy(buffer + buffer_offset * TRAJ_BLOCK_SIZE, block_ptr, TRAJ_BLOCK_SIZE);
 
         if ((i+1) % batch_block_size == 0) {
-            my_fseek(fp, i * TRAJ_BLOCK_SIZE, fs_mode);
+            my_fseek(fp, i * TRAJ_BLOCK_SIZE, fs_mode); // no effect for spdk fs, our spdk fs is append-write
             int result_size = my_fwrite(buffer, batch_block_size, TRAJ_BLOCK_SIZE, fp, fs_mode);
             if (result_size > 0) {
                 count+=batch_block_size;

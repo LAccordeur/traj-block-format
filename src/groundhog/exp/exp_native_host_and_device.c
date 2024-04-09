@@ -230,7 +230,7 @@ static void print_large_file_info() {
 
     // print temporal meta information for each block
     struct index_entry_storage *index_storage = &rebuild_engine.index_storage;
-    for (int i = 0; i <= index_storage->current_index; i+=4096) {
+    for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
         printf("block pointer: [%d], time min: %d, time max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max);
     }
@@ -1979,8 +1979,8 @@ void exp_spatio_temporal_knn_query_porto_scan() {
     start = clock();
     struct traj_point point = {1, 1, normalize_longitude(-8.610291),
                                normalize_latitude(41.140746)};
-    struct spatio_temporal_knn_predicate predicate = {point, 1000};
-    //exp_native_spatio_temporal_knn_host_batch_v1(&predicate, &rebuild_engine);
+    struct spatio_temporal_knn_predicate predicate = {point, 50};
+    exp_native_spatio_temporal_knn_host_batch_v1(&predicate, &rebuild_engine);
 
     exp_native_spatio_temporal_knn_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine);
     end = clock();
@@ -2034,7 +2034,7 @@ void exp_spatio_temporal_knn_join_query_porto_scan() {
     start = clock();
 
     struct spatio_temporal_knn_join_predicate predicate = {0,0, 100};
-    //exp_native_spatio_temporal_knn_join_host_batch_v1(&predicate, &rebuild_engine);
+    exp_native_spatio_temporal_knn_join_host_batch_v1(&predicate, &rebuild_engine);
 
     exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine);
 
@@ -2097,6 +2097,7 @@ int main(void) {
 
 
     //ingest_and_flush_porto_data_zcurve_full();
+    //ingest_and_flush_porto_data_time_oid_full();
     //exp_spatio_temporal_knn_query_porto_scan();
 
 

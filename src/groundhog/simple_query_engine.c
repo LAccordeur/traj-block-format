@@ -20,6 +20,7 @@
 #include "groundhog/traj_processing.h"
 #include "groundhog/nyc_dataset_reader.h"
 #include "groundhog/knn_util.h"
+#include "groundhog/osm_dataset_reader.h"
 
 static bool enable_estimated_result_size = false;
 static int REQUEST_BATCH_SIZE = 1;  // when using a large batch size, the performance is not good. This needs more investigation
@@ -494,6 +495,101 @@ void ingest_data_via_zcurve_partition_with_block_index(struct simple_query_engin
 
 }
 
+
+void ingest_osm_data_via_zcurve_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num) {
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+    // trajectory block info
+    int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM);
+
+    int buffer_size = 1024 * 8; // the number of block
+    for (int i = 0; i < block_num; i+= buffer_size) {
+
+        int used_buffer_size = block_num - i < buffer_size ? block_num - i : buffer_size;
+        int total_points_num = points_num * used_buffer_size;
+
+        struct traj_point **points_buffer = allocate_points_memory(total_points_num);
+        read_points_from_csv_osm(fp, points_buffer, (i + block_index) * points_num, total_points_num);
+        sort_traj_points_zcurve(points_buffer, total_points_num);
+
+        for (int j = 0; j < used_buffer_size; j++) {
+            struct traj_point **points = points_buffer + j * points_num;
+
+            // convert and put this data to traj storage
+            void *data = malloc(TRAJ_BLOCK_SIZE);
+            do_self_contained_traj_block(points, points_num, data, TRAJ_BLOCK_SIZE);
+            struct address_pair data_addresses = append_traj_block_to_storage(data_storage, data);
+
+            // update index
+            struct index_entry *entry = malloc(sizeof(struct index_entry));
+            init_index_entry(entry);
+            fill_index_entry(entry, points, points_num, data_addresses.physical_ptr, data_addresses.logical_adr + block_index);
+            append_index_entry_to_storage(index_storage, entry);
+
+            // update seg_meta store
+            struct seg_meta_section_entry *seg_entry = (struct seg_meta_section_entry *)malloc(sizeof(struct seg_meta_section_entry));
+            struct traj_block_header header;
+            parse_traj_block_for_header(data, &header);
+            int meta_section_size = get_seg_meta_section_size(data);
+            void* meta_section = malloc(meta_section_size);
+            extract_seg_meta_section(data, meta_section);
+            seg_entry->seg_meta_count = header.seg_count;
+            seg_entry->seg_meta_section = meta_section;
+            seg_entry->block_logical_adr = data_addresses.logical_adr + block_index;
+            append_to_seg_meta_entry_storage(meta_storage, seg_entry);
+        }
+
+        free_points_memory(points_buffer, total_points_num);
+    }
+
+
+    debug_print("[ingest_osm_data_via_zcurve_partition_with_block_index] num of ingesting data points: %d\n", points_num * (block_num - 1));
+
+}
+
+void ingest_osm_data_via_time_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num) {
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+    // trajectory block info
+    int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM);
+
+    for (int i = 0; i < block_num; i++) {
+        struct traj_point **points = allocate_points_memory(points_num);
+        read_points_from_csv_osm(fp,points, (i+block_index)*points_num, points_num);
+        // convert and put this data to traj storage
+        void *data = malloc(TRAJ_BLOCK_SIZE);
+        sort_traj_points(points, points_num);
+        do_self_contained_traj_block(points, points_num, data, TRAJ_BLOCK_SIZE);
+        struct address_pair data_addresses = append_traj_block_to_storage(data_storage, data);
+
+        // update index
+        struct index_entry *entry = malloc(sizeof(struct index_entry));
+        init_index_entry(entry);
+        fill_index_entry(entry, points, points_num, data_addresses.physical_ptr, data_addresses.logical_adr + block_index);
+        append_index_entry_to_storage(index_storage, entry);
+
+        // update seg_meta store
+        struct seg_meta_section_entry *seg_entry = (struct seg_meta_section_entry *)malloc(sizeof(struct seg_meta_section_entry));
+        struct traj_block_header header;
+        parse_traj_block_for_header(data, &header);
+        int meta_section_size = get_seg_meta_section_size(data);
+        void* meta_section = malloc(meta_section_size);
+        extract_seg_meta_section(data, meta_section);
+        seg_entry->seg_meta_count = header.seg_count;
+        seg_entry->seg_meta_section = meta_section;
+        seg_entry->block_logical_adr = data_addresses.logical_adr + block_index;
+        append_to_seg_meta_entry_storage(meta_storage, seg_entry);
+
+        free_points_memory(points, points_num);
+    }
+
+    debug_print("[ingest_osm_data_via_time_partition_with_block_index] num of ingesting data points: %d\n", points_num * (block_num - 1));
+
+}
+
+
 void ingest_synthetic_data_via_time_partition(struct simple_query_engine *engine, int block_num) {
 
     struct traj_storage *data_storage = &engine->data_storage;
@@ -765,6 +861,57 @@ void ingest_and_flush_synthetic_data_via_time_partition(struct simple_query_engi
 void ingest_and_flush_synthetic_data_via_time_partition_with_block_index(struct simple_query_engine *engine, int block_index, int block_num) {
     // ingest to memory
     ingest_synthetic_data_via_time_partition_with_block_index(engine, block_index, block_num);
+
+    // flush memory to disk
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    // flush data storage
+    flush_traj_storage(data_storage);
+    // serialized and flush index storage
+    struct serialized_index_storage serialized_index;
+    init_serialized_index_storage(&serialized_index);
+    serialize_index_entry_storage(index_storage, &serialized_index);
+    flush_serialized_index_storage(&serialized_index, index_storage->my_fp->filename, index_storage->my_fp->fs_mode);
+    free_serialized_index_storage(&serialized_index);
+    // serialize and flush seg meta storage
+    struct serialized_seg_meta_section_entry_storage serialized_seg_meta;
+    init_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+    serialize_seg_meta_section_entry_storage(meta_storage, &serialized_seg_meta);
+    flush_serialized_seg_meta_storage(&serialized_seg_meta, meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode);
+    free_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+}
+
+void ingest_and_flush_osm_data_via_zcurve_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num) {
+    // ingest to memory
+    ingest_osm_data_via_zcurve_partition_with_block_index(engine, fp, block_index, block_num);
+
+    // flush memory to disk
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    // flush data storage
+    flush_traj_storage(data_storage);
+
+    // serialized and flush index storage
+    struct serialized_index_storage serialized_index;
+    init_serialized_index_storage(&serialized_index);
+    serialize_index_entry_storage(index_storage, &serialized_index);
+    flush_serialized_index_storage(&serialized_index, index_storage->my_fp->filename, index_storage->my_fp->fs_mode);
+    free_serialized_index_storage(&serialized_index);
+    // serialize and flush seg meta storage
+    struct serialized_seg_meta_section_entry_storage serialized_seg_meta;
+    init_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+    serialize_seg_meta_section_entry_storage(meta_storage, &serialized_seg_meta);
+    flush_serialized_seg_meta_storage(&serialized_seg_meta, meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode);
+    free_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+}
+
+void ingest_and_flush_osm_data_via_time_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num) {
+    // ingest to memory
+    ingest_osm_data_via_time_partition_with_block_index(engine, fp, block_index, block_num);
 
     // flush memory to disk
     struct traj_storage *data_storage = &engine->data_storage;
@@ -5805,7 +5952,14 @@ int spatio_temporal_knn_query_without_pushdown_batch(struct simple_query_engine 
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
         if (enable_host_index) {
-            block_logical_addr_count++;
+            if (predicate->query_point.normalized_longitude <= entry->lon_max
+                && predicate->query_point.normalized_longitude >= entry->lon_min
+                && predicate->query_point.normalized_latitude <= entry->lat_max
+                && predicate->query_point.normalized_latitude >= entry->lat_min
+                && predicate->query_point.timestamp_sec <= entry->time_max
+                && predicate->query_point.timestamp_sec >= entry->time_min) {
+                block_logical_addr_count++;
+            }
         } else {
             block_logical_addr_count++;
         }
@@ -5823,8 +5977,16 @@ int spatio_temporal_knn_query_without_pushdown_batch(struct simple_query_engine 
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
         if (enable_host_index) {
-            block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
-            addr_vec_index++;
+            if (predicate->query_point.normalized_longitude <= entry->lon_max
+                && predicate->query_point.normalized_longitude >= entry->lon_min
+                && predicate->query_point.normalized_latitude <= entry->lat_max
+                && predicate->query_point.normalized_latitude >= entry->lat_min
+                && predicate->query_point.timestamp_sec <= entry->time_max
+                && predicate->query_point.timestamp_sec >= entry->time_min) {
+                block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
+                addr_vec_index++;
+            }
+
         } else {
             block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
             addr_vec_index++;
@@ -5994,7 +6156,7 @@ run_knn_query_in_host_batch(struct spatio_temporal_knn_predicate *predicate, str
 
     combine_and_sort(&knn_result_buffer);
     end = clock();
-    print_result_buffer(&knn_result_buffer);
+    //print_result_buffer(&knn_result_buffer);
 
     free_points_buffer(points_buffer_size);
     free_knn_result_buffer(&knn_result_buffer);
@@ -6016,7 +6178,14 @@ int spatio_temporal_knn_query_with_pushdown_batch(struct simple_query_engine *en
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
         if (enable_host_index) {
-            block_logical_addr_count++;
+            if (predicate->query_point.normalized_longitude <= entry->lon_max
+                && predicate->query_point.normalized_longitude >= entry->lon_min
+                && predicate->query_point.normalized_latitude <= entry->lat_max
+                && predicate->query_point.normalized_latitude >= entry->lat_min
+                && predicate->query_point.timestamp_sec <= entry->time_max
+                && predicate->query_point.timestamp_sec >= entry->time_min) {
+                block_logical_addr_count++;
+            }
         } else {
             block_logical_addr_count++;
         }
@@ -6034,8 +6203,15 @@ int spatio_temporal_knn_query_with_pushdown_batch(struct simple_query_engine *en
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
         if (enable_host_index) {
-            block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
-            addr_vec_index++;
+            if (predicate->query_point.normalized_longitude <= entry->lon_max
+                && predicate->query_point.normalized_longitude >= entry->lon_min
+                && predicate->query_point.normalized_latitude <= entry->lat_max
+                && predicate->query_point.normalized_latitude >= entry->lat_min
+                && predicate->query_point.timestamp_sec <= entry->time_max
+                && predicate->query_point.timestamp_sec >= entry->time_min) {
+                block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
+                addr_vec_index++;
+            }
         } else {
             block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
             addr_vec_index++;
@@ -6167,10 +6343,10 @@ run_spatio_temporal_knn_query_device_batch(struct spatio_temporal_knn_predicate 
 
     combine_and_sort(&knn_buffer);
 
-    for (int i = 0; i < knn_buffer.current_buffer_size; i++) {
+    /*for (int i = 0; i < knn_buffer.current_buffer_size; i++) {
         struct result_item item = knn_buffer.result_buffer_k[i];
         printf("oid: %d, dist: %d\n", item.point.oid, item.distance);
-    }
+    }*/
     printf("result k value: %d\n", knn_buffer.current_buffer_size);
 
     free_knn_result_buffer(&knn_buffer);

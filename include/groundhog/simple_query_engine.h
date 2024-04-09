@@ -67,15 +67,29 @@ void ingest_and_flush_nyc_data_via_time_partition(struct simple_query_engine *en
 
 void ingest_and_flush_data_via_time_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num);
 
+// porto data
 void ingest_and_flush_data_via_zcurve_partition(struct simple_query_engine *engine, FILE *fp, int block_num);
 
 void ingest_and_flush_nyc_data_via_zcurve_partition(struct simple_query_engine *engine, FILE *fp, int block_num);
 
+/**
+ *
+ * @param engine
+ * @param fp
+ * @param block_index we start the ingestiong from the specific block
+ * @param block_num
+ */
 void ingest_and_flush_data_via_zcurve_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num);
 
 void ingest_and_flush_synthetic_data_via_time_partition(struct simple_query_engine *engine, int block_num);
 
 void ingest_and_flush_synthetic_data_via_time_partition_with_block_index(struct simple_query_engine *engine, int block_index, int block_num);
+
+
+
+void ingest_and_flush_osm_data_via_zcurve_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num);
+
+void ingest_and_flush_osm_data_via_time_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num);
 
 void rebuild_query_engine_from_file(struct simple_query_engine *engine);
 
