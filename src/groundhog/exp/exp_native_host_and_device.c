@@ -2095,14 +2095,14 @@ void exp_spatio_temporal_knn_join_query_porto_scan() {
 
     start = clock();
 
-    struct spatio_temporal_knn_join_predicate predicate = {0,0, 10};
+    struct spatio_temporal_knn_join_predicate predicate = {0,0, 90};
 
     query_start = clock();
     exp_native_spatio_temporal_knn_join_host_batch_v1(&predicate, &rebuild_engine);
     query_end = clock();
     host_time = query_end - query_start;
 
-    /*// naive
+    // naive
     query_start = clock();
     exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine, 1);
     query_end = clock();
@@ -2117,7 +2117,7 @@ void exp_spatio_temporal_knn_join_query_porto_scan() {
     query_start = clock();
     exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine, 3);
     query_end = clock();
-    device_time = query_end - query_start;*/
+    device_time = query_end - query_start;
 
     end = clock();
 

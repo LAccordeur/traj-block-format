@@ -85,5 +85,5 @@ int main(void)  {
     //ingest_and_flush_synthetic_data_large(2, 4);
     //print_large_file_info();
 
-    ingest_and_flush_osm_data_zcurve_large(442000, 24);
+    ingest_and_flush_osm_data_zcurve_large(400000, 24);
 }

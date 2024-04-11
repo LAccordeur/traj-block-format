@@ -6434,6 +6434,8 @@ int spatio_temporal_knn_join_query_without_pushdown_batch(struct simple_query_en
     struct traj_storage *data_storage = &engine->data_storage;
     struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
 
+    int result_count = 0;
+
     int block_logical_addr_count = 0;
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
@@ -6460,7 +6462,7 @@ int spatio_temporal_knn_join_query_without_pushdown_batch(struct simple_query_en
             addr_vec_index++;
         }
         //run_knn_join_query_in_host_batch(predicate, data_storage, addr_vec_index, block_logical_addr_vec, &knnjoin_buffer);
-        run_knn_join_query_in_host_fileapi(predicate, data_storage, addr_vec_index, block_logical_addr_vec, &knnjoin_buffer);
+        result_count += run_knn_join_query_in_host_fileapi(predicate, data_storage, addr_vec_index, block_logical_addr_vec, &knnjoin_buffer);
 
         addr_vec_index = 0;
     }
@@ -6479,7 +6481,7 @@ int spatio_temporal_knn_join_query_without_pushdown_batch(struct simple_query_en
 
 
     free(block_logical_addr_vec);
-    return 0;
+    return result_count;
 }
 
 
@@ -6549,6 +6551,7 @@ static int spatio_temporal_knn_join_query_raw_trajectory_block(void* data_block1
             }
         }
     }
+    return result_count;
 }
 
 /**
@@ -6751,6 +6754,8 @@ int spatio_temporal_knn_join_query_with_pushdown_batch(struct simple_query_engin
     struct traj_storage *data_storage = &engine->data_storage;
     struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
 
+    int result_count = 0;
+
     int block_logical_addr_count = 0;
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
@@ -6776,7 +6781,7 @@ int spatio_temporal_knn_join_query_with_pushdown_batch(struct simple_query_engin
             block_logical_addr_vec[addr_vec_index] = block_logical_addr2;
             addr_vec_index++;
         }
-        run_spatio_temporal_knn_join_query_device_batch(predicate, data_storage, addr_vec_index,
+        result_count += run_spatio_temporal_knn_join_query_device_batch(predicate, data_storage, addr_vec_index,
                                          block_logical_addr_vec, &knnjoin_buffer, option);
 
         addr_vec_index = 0;
