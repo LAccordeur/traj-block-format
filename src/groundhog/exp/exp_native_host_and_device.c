@@ -1980,14 +1980,14 @@ void exp_spatio_temporal_knn_query_porto_scan() {
     start = clock();
     /*struct traj_point point = {1, 1, normalize_longitude(-8.610291),
                                normalize_latitude(41.140746)};
-    struct spatio_temporal_knn_predicate predicate = {point, 100};*/
+    struct spatio_temporal_knn_predicate predicate = {point, 10};*/
     struct spatio_temporal_knn_predicate *predicate_ptr = NULL;
 
 
     FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_knn_k90.query", "r");
     // read queries
     //int query_num = 100;
-    int query_num = 100;
+    int query_num = 1;
     struct spatio_temporal_knn_predicate **predicates = allocate_spatio_temporal_knn_predicate_mem(query_num);
     read_spatio_temporal_knn_queries_from_csv(query_fp, predicates, query_num);
 
@@ -2012,7 +2012,7 @@ void exp_spatio_temporal_knn_query_porto_scan() {
         host_time_pure[i] = running_time;
 
         // naive
-        /*query_start = clock();
+        query_start = clock();
         running_time = exp_native_spatio_temporal_knn_armcpu_pushdown_batch_v1(predicate_ptr, &rebuild_engine, 1);
         query_end = clock();
         device_time_naive[i] = query_end - query_start;
@@ -2030,7 +2030,7 @@ void exp_spatio_temporal_knn_query_porto_scan() {
         running_time = exp_native_spatio_temporal_knn_armcpu_pushdown_batch_v1(predicate_ptr, &rebuild_engine, 3);
         query_end = clock();
         device_time[i] = query_end - query_start;
-        device_time_pure[i] = running_time;*/
+        device_time_pure[i] = running_time;
     }
     end = clock();
     printf("total time: %f\n",(double)(end-start));
@@ -2059,11 +2059,11 @@ static int exp_native_spatio_temporal_knn_join_host_batch_v1(struct spatio_tempo
     return engine_result;
 }
 
-static int exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(struct spatio_temporal_knn_join_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+static int exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(struct spatio_temporal_knn_join_predicate *predicate, struct simple_query_engine *rebuild_engine, int option) {
 
     clock_t start, end;
     start = clock();
-    int engine_result = spatio_temporal_knn_join_query_with_pushdown_batch(rebuild_engine, predicate);
+    int engine_result = spatio_temporal_knn_join_query_with_pushdown_batch(rebuild_engine, predicate, option);
     end = clock();
     printf("[isp cpu] query time (total time, including all): %f\n", (double )(end - start));
     printf("engine result: %d\n", engine_result);
@@ -2086,16 +2086,46 @@ void exp_spatio_temporal_knn_join_query_porto_scan() {
 
 
 
-    clock_t start, end;
+    clock_t start, end, query_start, query_end;
+
+    long host_time;
+    long device_time_naive;
+    long device_time_mbr_pruning;
+    long device_time;
+
     start = clock();
 
-    struct spatio_temporal_knn_join_predicate predicate = {0,60 * 24 * 7, 30};
-    exp_native_spatio_temporal_knn_join_host_batch_v1(&predicate, &rebuild_engine);
+    struct spatio_temporal_knn_join_predicate predicate = {0,0, 10};
 
-    exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine);
+    query_start = clock();
+    exp_native_spatio_temporal_knn_join_host_batch_v1(&predicate, &rebuild_engine);
+    query_end = clock();
+    host_time = query_end - query_start;
+
+    /*// naive
+    query_start = clock();
+    exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine, 1);
+    query_end = clock();
+    device_time_naive = query_end - query_start;
+
+    // add mbr pruning
+    query_start = clock();
+    exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine, 2);
+    query_end = clock();
+    device_time_mbr_pruning = query_end - query_start;
+
+    query_start = clock();
+    exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine, 3);
+    query_end = clock();
+    device_time = query_end - query_start;*/
 
     end = clock();
+
     printf("total time: %f\n",(double)(end-start));
+    printf("\n\n[host] time: %ld\n", host_time);
+    printf("[device naive] time: %ld\n", device_time_naive);
+    printf("[device add mbr pruning] time: %ld\n", device_time_mbr_pruning);
+    printf("[device] average time: %ld\n", device_time);
 
 
     free_query_engine(&rebuild_engine);
@@ -2154,12 +2184,13 @@ int main(void) {
 
     //ingest_and_flush_porto_data_zcurve_full();
     //ingest_and_flush_porto_data_time_oid_full();
-    exp_spatio_temporal_knn_query_porto_scan();
+    //exp_spatio_temporal_knn_query_porto_scan();
 
 
     //ingest_and_flush_porto_data_zcurve_full();
+    //ingest_and_flush_porto_data_time_oid_full();
     //ingest_and_flush_porto_data(1024);
-    //exp_spatio_temporal_knn_join_query_porto_scan();
+    exp_spatio_temporal_knn_join_query_porto_scan();
 
     printf("%d\n", calculate_points_num_via_block_size(4096, 4));
 

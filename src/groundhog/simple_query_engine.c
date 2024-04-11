@@ -145,7 +145,7 @@ run_knn_join_query_in_host_batch(struct spatio_temporal_knn_join_predicate *pred
 
 int
 run_spatio_temporal_knn_join_query_device_batch(struct spatio_temporal_knn_join_predicate *predicate, struct traj_storage *data_storage,
-                                                int block_logical_addr_count, int *block_logical_addr_vec, struct knnjoin_result_buffer *knnjoin_buffer);
+                                                int block_logical_addr_count, int *block_logical_addr_vec, struct knnjoin_result_buffer *knnjoin_buffer, int option);
 
 int
 run_knn_join_query_in_host_fileapi(struct spatio_temporal_knn_join_predicate *predicate, struct traj_storage *data_storage,
@@ -1189,6 +1189,34 @@ static void assemble_isp_desc_for_spatial_temporal_knn_naive_add_mbr_pruning(str
 
 static void assemble_isp_desc_for_spatial_temporal_knn_join(struct isp_descriptor *isp_desc, struct spatio_temporal_knn_join_predicate *predicate, int estimated_result_block_num, struct lba *lba_vec, int lba_vec_size) {
     isp_desc->isp_type = 7;
+    isp_desc->estimated_result_page_num = estimated_result_block_num;
+    isp_desc->oid = predicate->k;
+    isp_desc->lba_array = lba_vec;
+    isp_desc->lba_count = lba_vec_size;
+    isp_desc->time_min = 0;
+    isp_desc->time_max = 0;
+    isp_desc->lon_min = 0;
+    isp_desc->lon_max = 0;
+    isp_desc->lat_min = 0;
+    isp_desc->lat_max = 0;
+}
+
+static void assemble_isp_desc_for_spatial_temporal_knn_join_naive(struct isp_descriptor *isp_desc, struct spatio_temporal_knn_join_predicate *predicate, int estimated_result_block_num, struct lba *lba_vec, int lba_vec_size) {
+    isp_desc->isp_type = 71;
+    isp_desc->estimated_result_page_num = estimated_result_block_num;
+    isp_desc->oid = predicate->k;
+    isp_desc->lba_array = lba_vec;
+    isp_desc->lba_count = lba_vec_size;
+    isp_desc->time_min = 0;
+    isp_desc->time_max = 0;
+    isp_desc->lon_min = 0;
+    isp_desc->lon_max = 0;
+    isp_desc->lat_min = 0;
+    isp_desc->lat_max = 0;
+}
+
+static void assemble_isp_desc_for_spatial_temporal_knn_join_naive_add_mbr_pruning(struct isp_descriptor *isp_desc, struct spatio_temporal_knn_join_predicate *predicate, int estimated_result_block_num, struct lba *lba_vec, int lba_vec_size) {
+    isp_desc->isp_type = 72;
     isp_desc->estimated_result_page_num = estimated_result_block_num;
     isp_desc->oid = predicate->k;
     isp_desc->lba_array = lba_vec;
@@ -6419,7 +6447,7 @@ int spatio_temporal_knn_join_query_without_pushdown_batch(struct simple_query_en
     init_knnjoin_result_buffer(predicate->k, &knnjoin_buffer);
 
     int addr_vec_index = 0;
-    for (int i = 0; i <= 0; i++) {
+    for (int i = 0; i <= 4; i++) {
         printf("data load i: %d\n", i);
         struct index_entry *entry1 = index_storage->index_entry_base[i];
         int block_logical_addr1 = entry1->block_logical_adr;
@@ -6436,6 +6464,7 @@ int spatio_temporal_knn_join_query_without_pushdown_batch(struct simple_query_en
 
         addr_vec_index = 0;
     }
+
 
     combine_and_sort_knnjoin(&knnjoin_buffer);
 
@@ -6717,7 +6746,7 @@ run_knn_join_query_in_host_fileapi(struct spatio_temporal_knn_join_predicate *pr
 
 }
 
-int spatio_temporal_knn_join_query_with_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_knn_join_predicate *predicate) {
+int spatio_temporal_knn_join_query_with_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_knn_join_predicate *predicate, int option) {
     struct index_entry_storage *index_storage = &engine->index_storage;
     struct traj_storage *data_storage = &engine->data_storage;
     struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
@@ -6735,7 +6764,7 @@ int spatio_temporal_knn_join_query_with_pushdown_batch(struct simple_query_engin
     init_knnjoin_result_buffer(predicate->k, &knnjoin_buffer);
 
     int addr_vec_index = 0;
-    for (int i = 0; i <= 0; i++) {
+    for (int i = 0; i <= 4; i++) {
         printf("data load i: %d\n", i);
         struct index_entry *entry1 = index_storage->index_entry_base[i];
         int block_logical_addr1 = entry1->block_logical_adr;
@@ -6748,7 +6777,7 @@ int spatio_temporal_knn_join_query_with_pushdown_batch(struct simple_query_engin
             addr_vec_index++;
         }
         run_spatio_temporal_knn_join_query_device_batch(predicate, data_storage, addr_vec_index,
-                                         block_logical_addr_vec, &knnjoin_buffer);
+                                         block_logical_addr_vec, &knnjoin_buffer, option);
 
         addr_vec_index = 0;
     }
@@ -6793,7 +6822,7 @@ static int spatio_temporal_knn_join_query_isp_blocks(void* data_blocks, struct s
  */
 int
 run_spatio_temporal_knn_join_query_device_batch(struct spatio_temporal_knn_join_predicate *predicate, struct traj_storage *data_storage,
-                                                int block_logical_addr_count, int *block_logical_addr_vec, struct knnjoin_result_buffer *knnjoin_buffer) {
+                                                int block_logical_addr_count, int *block_logical_addr_vec, struct knnjoin_result_buffer *knnjoin_buffer, int option) {
     int result_count = 0;
 
     clock_t start, end, pure_read, comp_start, comp_end, pure_comp;
@@ -6835,8 +6864,17 @@ run_spatio_temporal_knn_join_query_device_batch(struct spatio_temporal_knn_join_
         struct isp_descriptor *isp_desc = malloc(sizeof(struct isp_descriptor));
         struct lba *lba_vec = malloc(sizeof(struct lba) * block_meta_vec_size);
         assemble_lba_vec_via_block_meta(lba_vec, DATA_FILE_OFFSET, block_meta_vec, block_meta_vec_size);
-        assemble_isp_desc_for_spatial_temporal_knn_join(isp_desc, predicate, estimated_result_block_num, lba_vec, block_meta_vec_size);
 
+        if (option == 1) {
+            assemble_isp_desc_for_spatial_temporal_knn_join_naive(isp_desc, predicate, estimated_result_block_num, lba_vec,
+                                                            block_meta_vec_size);
+        } else if (option == 2) {
+            assemble_isp_desc_for_spatial_temporal_knn_join_naive_add_mbr_pruning(isp_desc, predicate, estimated_result_block_num, lba_vec,
+                                                            block_meta_vec_size);
+        } else {
+            assemble_isp_desc_for_spatial_temporal_knn_join(isp_desc, predicate, estimated_result_block_num, lba_vec,
+                                                            block_meta_vec_size);
+        }
         //int isp_descriptor_size = calculate_isp_descriptor_space(isp_desc);
         //printf("[run_knn_join_query_in_host_batch] isp descriptor size: %d\n", isp_descriptor_size);
 
