@@ -940,7 +940,7 @@ void rebuild_query_engine_from_file(struct simple_query_engine *engine) {
     struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
 
     rebuild_index_storage(index_storage->my_fp->filename, index_storage->my_fp->fs_mode, index_storage);
-    //rebuild_seg_meta_storage(meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode, meta_storage);
+    rebuild_seg_meta_storage(meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode, meta_storage);
 
 }
 
@@ -6090,6 +6090,7 @@ static int spatio_temporal_knn_query_raw_trajectory_block(void* data_block, stru
         long min_dist = cal_min_distance(&(predicate->query_point), &meta_item);
         if (min_dist <= current_max_dist && min_dist <= minmaxdist_min) {
         //if (min_dist <= current_max_dist) {
+                result_buffer->statistics.checked_segment_num++;
                 int data_seg_points_num = meta_item.seg_size / traj_point_size;
                 struct traj_point *point_ptr = (struct traj_point *)((char *) data_block + meta_item.seg_offset);
 

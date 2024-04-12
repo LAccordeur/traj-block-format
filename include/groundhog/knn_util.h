@@ -20,6 +20,7 @@ struct runtime_statistics {
     int combine_and_sort_call_num;
     int buffer_low_half_full_num;
     int buffer_high_hal_full_num;
+    int checked_segment_num;
 };
 
 struct result_item {

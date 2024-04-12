@@ -22,6 +22,7 @@ void init_knn_result_buffer(int k, struct knn_result_buffer *buffer) {
     buffer->statistics.buffer_low_half_full_num = 0;
     buffer->statistics.combine_and_sort_call_num = 0;
     buffer->statistics.sort_func_call_num = 0;
+    buffer->statistics.checked_segment_num = 0;
 }
 
 void free_knn_result_buffer(struct knn_result_buffer *buffer) {
@@ -400,6 +401,6 @@ void print_knnjoin_result_buffer(struct knnjoin_result_buffer *buffer) {
 }
 
 void print_runtime_statistics(struct runtime_statistics *statistics) {
-    printf("add item call num: %d, sort call num: %d, low half full num: %d, high half full num: %d, combine and sort num: %d\n",
-           statistics->add_item_to_buffer_call_num, statistics->sort_func_call_num, statistics->buffer_low_half_full_num, statistics->buffer_high_hal_full_num, statistics->combine_and_sort_call_num);
+    printf("add item call num: %d, sort call num: %d, low half full num: %d, high half full num: %d, combine and sort num: %d, checked data segment num: %d\n",
+           statistics->add_item_to_buffer_call_num, statistics->sort_func_call_num, statistics->buffer_low_half_full_num, statistics->buffer_high_hal_full_num, statistics->combine_and_sort_call_num, statistics->checked_segment_num);
 }

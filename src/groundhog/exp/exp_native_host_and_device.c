@@ -2190,7 +2190,11 @@ int main(void) {
     //ingest_and_flush_porto_data_zcurve_full();
     //ingest_and_flush_porto_data_time_oid_full();
     //ingest_and_flush_porto_data(1024);
-    exp_spatio_temporal_knn_join_query_porto_scan();
+    //exp_spatio_temporal_knn_join_query_porto_scan();
+
+    //ingest_and_flush_nyc_data_zcurve(197949);
+    //ingest_and_flush_nyc_data(197949); // time-oid
+    exp_spatio_temporal_query_nyc_scan();
 
     printf("%d\n", calculate_points_num_via_block_size(4096, 4));
 
