@@ -940,7 +940,7 @@ void rebuild_query_engine_from_file(struct simple_query_engine *engine) {
     struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
 
     rebuild_index_storage(index_storage->my_fp->filename, index_storage->my_fp->fs_mode, index_storage);
-    rebuild_seg_meta_storage(meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode, meta_storage);
+    //rebuild_seg_meta_storage(meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode, meta_storage);
 
 }
 
