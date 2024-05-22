@@ -12,7 +12,7 @@
 #include "groundhog/normalization_util.h"
 #include "groundhog/common_util.h"
 
-static bool enable_host_index = true;
+static bool enable_host_index = false;
 
 static void ingest_and_flush_porto_data(int data_block_num) {
     init_and_mk_fs_for_traj(false);
@@ -2250,19 +2250,19 @@ void exp_spatio_temporal_knn_query_porto_scan() {
         host_time[i] = query_end - query_start;
         host_time_pure[i] = running_time;
 
-        /*// naive
+        // naive
         query_start = clock();
         running_time = exp_native_spatio_temporal_knn_armcpu_pushdown_batch_v1(predicate_ptr, &rebuild_engine, 1);
         query_end = clock();
         device_time_naive[i] = query_end - query_start;
-        device_time_naive_pure[i] = running_time;*/
+        device_time_naive_pure[i] = running_time;
 
         // add pruning
-        query_start = clock();
+        /*query_start = clock();
         running_time = exp_native_spatio_temporal_knn_armcpu_pushdown_batch_v1(predicate_ptr, &rebuild_engine, 2);
         query_end = clock();
         device_time_mbr_pruning[i] = query_end - query_start;
-        device_time_mbr_pruning_pure[i] = running_time;
+        device_time_mbr_pruning_pure[i] = running_time;*/
 
         // add pruning and sorting optimizations
         query_start = clock();
@@ -2520,7 +2520,7 @@ int main(void) {
 
     //ingest_and_flush_porto_data_zcurve_full();
     //ingest_and_flush_porto_data_time_oid_full();
-    //exp_spatio_temporal_knn_query_porto_scan();
+    exp_spatio_temporal_knn_query_porto_scan();
 
 
     //ingest_and_flush_porto_data_zcurve_full();
@@ -2545,7 +2545,7 @@ int main(void) {
     //ingest_and_flush_porto_data_time_oid_full();
     //exp_spatio_temporal_query_porto_index_scan_low_selectivity_add_host_io_opt();
     //exp_id_temporal_query_porto();
-    exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt();
+    //exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt();
 
 
     printf("%d\n", calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM));

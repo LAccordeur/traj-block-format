@@ -8,9 +8,10 @@ extern "C" {
 #include "groundhog/porto_dataset_reader.h"
 }
 
-int point_num = 100000;
+int point_num = 200000;
 int k_value = 1000;
 int time_dist_pred = 60 * 60;
+int query_point_index = 14;
 
 TEST(knn_util_test, knn_query_baseline) {
     FILE *fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
@@ -21,7 +22,7 @@ TEST(knn_util_test, knn_query_baseline) {
     read_points_from_csv(fp,points, 0, point_num_in_buffer);
 
     // query
-    struct traj_point *query_point = points[0];
+    struct traj_point *query_point = points[query_point_index];
     int k = k_value;
 
     struct knn_result_buffer result_buffer;
@@ -51,6 +52,50 @@ TEST(knn_util_test, knn_query_baseline) {
 
 }
 
+TEST(knn_util_test, knn_query_heap_baseline) {
+    FILE *fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
+
+    // load data points
+    int point_num_in_buffer = point_num;
+    struct traj_point **points = allocate_points_memory(point_num_in_buffer);
+    read_points_from_csv(fp,points, 0, point_num_in_buffer);
+
+    // query
+    struct traj_point *query_point = points[query_point_index];
+    int k = k_value;
+
+    struct knn_max_heap *heap = create_knn_max_heap(k);
+
+    clock_t start, end, total, t1, t2;
+    total = 0;
+    int add_item_count = 0;
+    start = clock();
+    for (int i = 0; i < point_num_in_buffer; i++) {
+        long distance = cal_points_distance(query_point, points[i]);
+        if (distance < knn_max_heap_find_max(heap).distance || heap->size < heap->capacity) {
+            struct result_item item = {*points[i], distance};
+            add_item_count++;
+            t1 = clock();
+            if (heap->size < heap->capacity) {
+                knn_max_heap_insert(heap, &item);
+            } else {
+                knn_max_heap_replace(heap, &item);
+            }
+            t2 = clock();
+            total += (t2 - t1);
+        }
+    }
+
+    end = clock();
+    printf("heap baseline time: %f, add item time: %f\n", (double)(end - start), (double)total);
+    printf("add item count: %d\n", add_item_count);
+
+    print_knn_max_heap(heap);
+    free_points_memory(points, point_num_in_buffer);
+    free_knn_max_heap(heap);
+
+}
+
 
 TEST(knn_util_test, knn_query) {
     FILE *fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
@@ -61,7 +106,7 @@ TEST(knn_util_test, knn_query) {
     read_points_from_csv(fp,points, 0, point_num_in_buffer);
 
     // query
-    struct traj_point *query_point = points[0];
+    struct traj_point *query_point = points[query_point_index];
     int k = k_value;
 
     struct knn_result_buffer result_buffer;
@@ -88,6 +133,46 @@ TEST(knn_util_test, knn_query) {
     print_runtime_statistics(&result_buffer.statistics);
     free_points_memory(points, point_num_in_buffer);
     free_knn_result_buffer(&result_buffer);
+
+}
+
+TEST(knn_util_test, knn_query_heap) {
+    FILE *fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
+
+    // load data points
+    int point_num_in_buffer = point_num;
+    struct traj_point **points = allocate_points_memory(point_num_in_buffer);
+    read_points_from_csv(fp,points, 0, point_num_in_buffer);
+
+    // query
+    struct traj_point *query_point = points[query_point_index];
+    int k = k_value;
+
+    struct buffered_knn_max_heap* result_buffer = create_buffered_knn_max_heap(k, 8);
+    struct knn_max_heap* heap = result_buffer->h;
+    clock_t start, end, total, t1, t2;
+    total = 0;
+    start = clock();
+    for (int i = 0; i < point_num_in_buffer; i++) {
+        long distance = cal_points_distance(query_point, points[i]);
+        if (distance < knn_max_heap_find_max(heap).distance || heap->size < heap->capacity) {
+            struct result_item item = {*points[i], distance};
+            t1 = clock();
+            buffered_knn_max_heap_insert(result_buffer, &item);
+            t2 = clock();
+            total += (t2 - t1);
+        }
+    }
+    buffered_knn_max_heap_compact(result_buffer);
+    end = clock();
+    printf("opt heap time: %f, add item time: %f\n", (double)(end - start), (double)total);
+    printf("add item heap count: %d, add item buffer count: %d, discard count: %d, non discard count: %d\n", result_buffer->statistics.add_to_heap_item_count,
+           result_buffer->statistics.add_to_buffer_item_count,
+           result_buffer->statistics.discard_count, result_buffer->statistics.non_discard_count);
+
+    print_knn_max_heap(result_buffer->h);
+    free_points_memory(points, point_num_in_buffer);
+    free_buffered_knn_max_heap(result_buffer);
 
 }
 
