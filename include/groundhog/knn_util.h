@@ -24,6 +24,7 @@ struct runtime_statistics {
 };
 
 struct heap_runtime_statistics {
+    int heap_sawp_operation_count;
     int add_to_heap_item_count;
     int add_to_buffer_item_count;
     int non_discard_count;
@@ -46,6 +47,14 @@ struct knn_max_heap {
     struct result_item *arr;
     int size;
     int capacity;
+    struct heap_runtime_statistics statistics;
+};
+
+struct knnjoin_max_heap {
+    struct knnjoin_result_item *arr;
+    int size;
+    int capacity;
+    struct heap_runtime_statistics statistics;
 };
 
 struct buffered_knn_max_heap {
@@ -72,6 +81,22 @@ void knn_max_heap_replace(struct knn_max_heap *h, struct result_item *item);
 struct result_item knn_max_heap_find_max(struct knn_max_heap *h);
 
 void print_knn_max_heap(struct knn_max_heap *h);
+
+
+
+struct knnjoin_max_heap* create_knnjoin_max_heap(int capacity);
+
+void free_knnjoin_max_heap(struct knnjoin_max_heap *h);
+
+struct knnjoin_result_item knnjoin_max_heap_extract_max(struct knnjoin_max_heap *h);
+
+void knnjoin_max_heap_insert(struct knnjoin_max_heap *h, struct knnjoin_result_item *item);
+
+void knnjoin_max_heap_replace(struct knnjoin_max_heap *h, struct knnjoin_result_item *item);
+
+struct knnjoin_result_item knnjoin_max_heap_find_max(struct knnjoin_max_heap *h);
+
+void print_knnjoin_max_heap(struct knnjoin_max_heap *h);
 
 
 

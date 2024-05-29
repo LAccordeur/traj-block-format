@@ -10,6 +10,11 @@ static void knn_max_heap_insert_helper(struct knn_max_heap *h, int index);
 
 static void knn_max_heap_heapify(struct knn_max_heap *h, int index);
 
+static void knnjoin_max_heap_insert_helper(struct knnjoin_max_heap *h, int index);
+
+static void knnjoin_max_heap_heapify(struct knnjoin_max_heap *h, int index);
+
+
 
 struct knn_max_heap* create_knn_max_heap(int capacity) {
 // Allocating memory to heap h
@@ -83,6 +88,8 @@ void knn_max_heap_heapify(struct knn_max_heap *h, int index) {
 
     // Swapping the nodes
     if (max != index) {
+        h->statistics.heap_sawp_operation_count++;
+
         struct result_item temp = h->arr[max];
         h->arr[max] = h->arr[index];
         h->arr[index] = temp;
@@ -90,6 +97,7 @@ void knn_max_heap_heapify(struct knn_max_heap *h, int index) {
         // recursively calling for their child elements
         // to maintain max heap
         knn_max_heap_heapify(h, max);
+
     }
 }
 
@@ -191,6 +199,7 @@ struct buffered_knn_max_heap* create_buffered_knn_max_heap(int capacity, int buf
     bh->statistics.discard_count = 0;
     bh->statistics.add_to_buffer_item_count = 0;
     bh->statistics.add_to_heap_item_count = 0;
+    return bh;
 }
 
 void free_buffered_knn_max_heap(struct buffered_knn_max_heap *bh) {
@@ -206,10 +215,10 @@ void buffered_knn_max_heap_insert(struct buffered_knn_max_heap *bh, struct resul
         knn_max_heap_insert(h, item);
         bh->statistics.add_to_heap_item_count++;
     } else {
-        if (!bh->is_max_dist_ref_initialized) {
+        /*if (!bh->is_max_dist_ref_initialized) {
             bh->max_distance_ref = knn_max_heap_find_max(h).distance;
             bh->is_max_dist_ref_initialized = true;
-        }
+        }*/
 
         // heap is full, so we add items to the buffer if their distances are larger than the split distance
         long split_dist = bh->max_distance_ref / bh->buffer_factor;
@@ -220,22 +229,30 @@ void buffered_knn_max_heap_insert(struct buffered_knn_max_heap *bh, struct resul
                 bh->buffer_size++;
                 bh->statistics.add_to_buffer_item_count++;
             } else {
-                long current_max_dist = knn_max_heap_find_max(h).distance;
+                long current_max_dist = h->arr[0].distance;
                 if (current_max_dist < split_dist) {
                     // all items in the buffer can be discarded
                     bh->buffer_size = 0;
                     bh->max_distance_ref = current_max_dist;
                     bh->statistics.discard_count++;
+                    printf("i am here buffer clear\n");
                 } else {
+                    if (item->distance < h->arr[0].distance) {
+                        knn_max_heap_replace(h, item);
+                        bh->statistics.add_to_heap_item_count++;
+                    }
+
                     for (int i = 0; i < bh->buffer_size; i++) {
-                        if (b[i].distance < knn_max_heap_find_max(h).distance) {
+                        if (b[i].distance < h->arr[0].distance) {
+                            struct result_item *item1 = &b[i];
                             knn_max_heap_replace(h, &b[i]);
                             bh->statistics.add_to_heap_item_count++;
                         }
                     }
                     bh->buffer_size = 0;
-                    bh->max_distance_ref = knn_max_heap_find_max(h).distance;
+                    bh->max_distance_ref = h->arr[0].distance;
                     bh->statistics.non_discard_count++;
+                    printf("i am here\n");
                 }
             }
         } else {
@@ -243,9 +260,9 @@ void buffered_knn_max_heap_insert(struct buffered_knn_max_heap *bh, struct resul
             knn_max_heap_replace(h, item);
             bh->statistics.add_to_heap_item_count++;
 
-            if (knn_max_heap_find_max(h).distance < split_dist) {
+            if (h->arr[0].distance < split_dist) {
                 bh->buffer_size = 0;
-                bh->max_distance_ref = knn_max_heap_find_max(h).distance;
+                bh->max_distance_ref = h->arr[0].distance;
                 bh->statistics.discard_count++;
             }
         }
@@ -257,7 +274,7 @@ void buffered_knn_max_heap_compact(struct buffered_knn_max_heap *bh) {
     struct knn_max_heap *h = bh->h;
     struct result_item *b = bh->result_buffer;
     for (int i = 0; i < bh->buffer_size; i++) {
-        if (b[i].distance < knn_max_heap_find_max(h).distance) {
+        if (b[i].distance < h->arr[0].distance) {
             knn_max_heap_replace(h, &b[i]);
             bh->statistics.add_to_heap_item_count++;
         }
@@ -265,6 +282,177 @@ void buffered_knn_max_heap_compact(struct buffered_knn_max_heap *bh) {
     bh->buffer_size = 0;
     bh->statistics.non_discard_count++;
 }
+
+
+
+
+
+struct knnjoin_max_heap* create_knnjoin_max_heap(int capacity) {
+    // Allocating memory to heap h
+    struct knnjoin_max_heap* h = (struct knnjoin_max_heap*)malloc(sizeof(struct knnjoin_max_heap));
+
+    // Checking if memory is allocated to h or not
+    if (h == NULL) {
+        printf("Memory error");
+        return NULL;
+    }
+    // set the values to size and capacity
+    h->size = 0;
+    h->capacity = capacity;
+
+    // Allocating memory to array
+    h->arr = (struct knnjoin_result_item*)malloc(capacity * sizeof(struct knnjoin_result_item));
+
+    // Checking if memory is allocated to h or not
+    if (h->arr == NULL) {
+        printf("Memory error");
+        return NULL;
+    }
+
+    return h;
+}
+
+void free_knnjoin_max_heap(struct knnjoin_max_heap *h) {
+    free(h->arr);
+    free(h);
+}
+
+
+static
+void knnjoin_max_heap_insert_helper(struct knnjoin_max_heap *h, int index) {
+    // Store parent of element at index
+    // in parent variable
+    int parent = (index - 1) / 2;
+
+    if (h->arr[parent].distance < h->arr[index].distance) {
+        // Swapping when child is smaller
+        // than parent element
+        struct knnjoin_result_item temp = h->arr[parent];
+        h->arr[parent] = h->arr[index];
+        h->arr[index] = temp;
+
+        // Recursively calling maxHeapify_bottom_up
+        knnjoin_max_heap_insert_helper(h, parent);
+    }
+}
+
+static
+void knnjoin_max_heap_heapify(struct knnjoin_max_heap *h, int index) {
+    int left = index * 2 + 1;
+    int right = index * 2 + 2;
+    int max = index;
+
+    // Checking whether our left or child element
+    // is at right index of not to avoid index error
+    if (left >= h->size || left < 0)
+        left = -1;
+    if (right >= h->size || right < 0)
+        right = -1;
+
+    // store left or right element in max if
+    // any of these is smaller that its parent
+    if (left != -1 && h->arr[left].distance > h->arr[max].distance) {
+        max = left;
+    }
+    if (right != -1 && h->arr[right].distance > h->arr[max].distance) {
+        max = right;
+    }
+
+    // Swapping the nodes
+    if (max != index) {
+        h->statistics.heap_sawp_operation_count++;
+
+        struct knnjoin_result_item temp = h->arr[max];
+        h->arr[max] = h->arr[index];
+        h->arr[index] = temp;
+
+        // recursively calling for their child elements
+        // to maintain max heap
+        knnjoin_max_heap_heapify(h, max);
+
+    }
+}
+
+
+struct knnjoin_result_item knnjoin_max_heap_extract_max(struct knnjoin_max_heap *h) {
+    struct knnjoin_result_item deleteItem;
+
+    // Checking if the heap is empty or not
+    if (h->size == 0) {
+        printf("\nHeap id empty.");
+        return deleteItem;
+    }
+
+    // Store the node in deleteItem that
+    // is to be deleted.
+    deleteItem = h->arr[0];
+
+    // Replace the deleted node with the last node
+    h->arr[0] = h->arr[h->size - 1];
+    // Decrement the size of heap
+    h->size--;
+
+    // Call maxheapify_top_down for 0th index
+    // to maintain the heap property
+    knnjoin_max_heap_heapify(h, 0);
+    return deleteItem;
+}
+
+void knnjoin_max_heap_insert(struct knnjoin_max_heap *h, struct knnjoin_result_item *item) {
+    // Checking if heap is full or not
+    if (h->size < h->capacity) {
+        // Inserting data into an array
+        h->arr[h->size] = *item;
+        // Calling maxHeapify_bottom_up function
+        knnjoin_max_heap_insert_helper(h, h->size);
+        // Incrementing size of array
+        h->size++;
+    }
+}
+
+void knnjoin_max_heap_replace(struct knnjoin_max_heap *h, struct knnjoin_result_item *item) {
+    // Checking if the heap is empty or not
+    if (h->size == 0) {
+        printf("\nHeap is empty.");
+        return;
+    }
+
+
+    // Replace the root node with the newly added node
+    h->arr[0] = *item;
+
+    // Call maxheapify_top_down for 0th index
+    // to maintain the heap property
+    knnjoin_max_heap_heapify(h, 0);
+}
+
+struct knnjoin_result_item knnjoin_max_heap_find_max(struct knnjoin_max_heap *h) {
+    if (h->size == 0) {
+        printf("\nHeap is empty.");
+        h->arr[0].distance = INT_MAX;
+    }
+    return h->arr[0];
+}
+
+void print_knnjoin_max_heap(struct knnjoin_max_heap *h) {
+    printf("total num: %d\n", h->size);
+    sort_knnjoin_buffer(h->arr, h->size);
+    for (int i = 0; i < h->size; i++) {
+        struct knnjoin_result_item item = h->arr[i];
+        /*printf("oid: %d, lon: %d, lat: %d, time: %d, dist: %d\n",
+               item.point->oid, item.point->normalized_longitude, item.point->normalized_latitude, item.point->timestamp_sec, item.distance);*/
+        printf("(oid: %d, lon: %d, lat: %d, time: %d), (oid: %d, lon: %d, lat: %d, time: %d), dist: %ld\n",
+               item.point1.oid, item.point1.normalized_longitude, item.point1.normalized_latitude, item.point1.timestamp_sec,
+               item.point2.oid, item.point2.normalized_longitude, item.point2.normalized_latitude, item.point2.timestamp_sec,
+               item.distance);
+    }
+}
+
+
+
+
+
+
 
 
 void init_knn_result_buffer(int k, struct knn_result_buffer *buffer) {

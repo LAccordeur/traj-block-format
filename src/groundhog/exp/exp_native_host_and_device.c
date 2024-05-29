@@ -12,7 +12,7 @@
 #include "groundhog/normalization_util.h"
 #include "groundhog/common_util.h"
 
-static bool enable_host_index = false;
+static bool enable_host_index = true;
 
 static void ingest_and_flush_porto_data(int data_block_num) {
     init_and_mk_fs_for_traj(false);
@@ -2243,6 +2243,7 @@ void exp_spatio_temporal_knn_query_porto_scan() {
     for (int i = 0; i < query_num; i++) {
         printf("\n\ni: %d\n", i);
         predicate_ptr = predicates[i];
+        predicate_ptr->k = 200;
 
         query_start = clock();
         running_time = exp_native_spatio_temporal_knn_host_batch_v1(predicate_ptr, &rebuild_engine);
@@ -2258,11 +2259,11 @@ void exp_spatio_temporal_knn_query_porto_scan() {
         device_time_naive_pure[i] = running_time;
 
         // add pruning
-        /*query_start = clock();
+        query_start = clock();
         running_time = exp_native_spatio_temporal_knn_armcpu_pushdown_batch_v1(predicate_ptr, &rebuild_engine, 2);
         query_end = clock();
         device_time_mbr_pruning[i] = query_end - query_start;
-        device_time_mbr_pruning_pure[i] = running_time;*/
+        device_time_mbr_pruning_pure[i] = running_time;
 
         // add pruning and sorting optimizations
         query_start = clock();
@@ -2445,10 +2446,10 @@ void exp_spatio_temporal_knn_join_query_porto_scan() {
     device_time_naive = query_end - query_start;
 
     // add mbr pruning
-    query_start = clock();
+    /*query_start = clock();
     exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine, 2);
     query_end = clock();
-    device_time_mbr_pruning = query_end - query_start;
+    device_time_mbr_pruning = query_end - query_start;*/
 
     query_start = clock();
     exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine, 3);
