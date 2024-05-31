@@ -38,6 +38,12 @@ struct knn_max_heap* create_knn_max_heap(int capacity) {
         return NULL;
     }
 
+    h->statistics.non_discard_count = 0;
+    h->statistics.discard_count = 0;
+    h->statistics.add_to_buffer_item_count = 0;
+    h->statistics.add_to_heap_item_count = 0;
+    h->statistics.heap_sawp_operation_count = 0;
+
     return h;
 }
 
@@ -199,6 +205,7 @@ struct buffered_knn_max_heap* create_buffered_knn_max_heap(int capacity, int buf
     bh->statistics.discard_count = 0;
     bh->statistics.add_to_buffer_item_count = 0;
     bh->statistics.add_to_heap_item_count = 0;
+    bh->statistics.heap_sawp_operation_count = 0;
     return bh;
 }
 
@@ -222,6 +229,7 @@ void buffered_knn_max_heap_insert(struct buffered_knn_max_heap *bh, struct resul
 
         // heap is full, so we add items to the buffer if their distances are larger than the split distance
         long split_dist = bh->max_distance_ref / bh->buffer_factor;
+        //long split_dist = h->arr[bh->buffer_factor - 1].distance;
         if (item->distance > split_dist) {
             // put to buffer
             if (bh->buffer_size < bh->buffer_capacity) {
@@ -774,7 +782,7 @@ long cal_min_distance(struct traj_point *point, struct seg_meta *mbr) {
     int r_lon, r_lat;
     if (point->normalized_longitude < mbr->lon_min) {
         r_lon = mbr->lon_min;
-    } else if (point->normalized_longitude > mbr->lon_min){
+    } else if (point->normalized_longitude > mbr->lon_max){
         r_lon = mbr->lon_max;
     } else {
         r_lon = point->normalized_longitude;

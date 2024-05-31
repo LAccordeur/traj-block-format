@@ -10,7 +10,7 @@ extern "C" {
 }
 
 int point_num = 100000;
-int k_value = 5000;
+int k_value = 500;
 int time_dist_pred = 60 * 60;
 int query_point_index = 114;
 
@@ -67,7 +67,7 @@ TEST(knn_util_test, knn_query_heap_baseline) {
 
 
     //print_traj_points(points, point_num_in_buffer);
-    sort_traj_points(points, point_num_in_buffer);
+    sort_traj_points_zcurve(points, point_num_in_buffer);
     //printf("after: \n");
     //print_traj_points(points, point_num_in_buffer);
 
@@ -91,10 +91,10 @@ TEST(knn_util_test, knn_query_heap_baseline) {
                 knn_max_heap_insert(heap, &item);
                 add_item_count++;
             } else {
-                //if (distance < 92599) {
-                    knn_max_heap_replace(heap, &item);
-                    add_item_count++;
-                //}
+
+                knn_max_heap_replace(heap, &item);
+                add_item_count++;
+
             }
         }
         //t2 = clock();
@@ -167,7 +167,7 @@ TEST(knn_util_test, knn_query_heap) {
     struct traj_point query_point = *points[query_point_index];
     int k = k_value;
 
-
+    sort_traj_points_zcurve(points, point_num_in_buffer);
     struct buffered_knn_max_heap* result_buffer = create_buffered_knn_max_heap(k, 8);
     struct knn_max_heap* heap = result_buffer->h;
     clock_t start, end, total, t1, t2;

@@ -2243,7 +2243,7 @@ void exp_spatio_temporal_knn_query_porto_scan() {
     for (int i = 0; i < query_num; i++) {
         printf("\n\ni: %d\n", i);
         predicate_ptr = predicates[i];
-        predicate_ptr->k = 200;
+        predicate_ptr->k = 20;
 
         query_start = clock();
         running_time = exp_native_spatio_temporal_knn_host_batch_v1(predicate_ptr, &rebuild_engine);
@@ -2312,8 +2312,8 @@ void exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt() {
 
     FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_knn_k90.query", "r");
     // read queries
-    int query_num = 100;
-    //int query_num = 20;
+    //int query_num = 100;
+    int query_num = 20;
     struct spatio_temporal_knn_predicate **predicates = allocate_spatio_temporal_knn_predicate_mem(query_num);
     read_spatio_temporal_knn_queries_from_csv(query_fp, predicates, query_num);
 
@@ -2332,6 +2332,7 @@ void exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt() {
     for (int i = 0; i < query_num; i++) {
         printf("\n\ni: %d\n", i);
         predicate_ptr = predicates[i];
+        predicate_ptr->k = 400;
 
         query_start = clock();
         running_time = exp_native_spatio_temporal_knn_host_multi_addr_batch_v1(predicate_ptr, &rebuild_engine);
@@ -2346,7 +2347,7 @@ void exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt() {
         host_time[i] = query_end - query_start;
         host_time_pure[i] = running_time;
 
-        /*// naive
+        // naive
         query_start = clock();
         running_time = exp_native_spatio_temporal_knn_armcpu_pushdown_batch_v1(predicate_ptr, &rebuild_engine, 1);
         query_end = clock();
@@ -2358,7 +2359,7 @@ void exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt() {
         running_time = exp_native_spatio_temporal_knn_armcpu_pushdown_batch_v1(predicate_ptr, &rebuild_engine, 2);
         query_end = clock();
         device_time_mbr_pruning[i] = query_end - query_start;
-        device_time_mbr_pruning_pure[i] = running_time;*/
+        device_time_mbr_pruning_pure[i] = running_time;
 
         // add pruning and sorting optimizations
         query_start = clock();
@@ -2432,7 +2433,7 @@ void exp_spatio_temporal_knn_join_query_porto_scan() {
 
     start = clock();
 
-    struct spatio_temporal_knn_join_predicate predicate = {0,0, 10};
+    struct spatio_temporal_knn_join_predicate predicate = {0,0, 90};
 
     query_start = clock();
     exp_native_spatio_temporal_knn_join_host_batch_v1(&predicate, &rebuild_engine);
@@ -2446,10 +2447,10 @@ void exp_spatio_temporal_knn_join_query_porto_scan() {
     device_time_naive = query_end - query_start;
 
     // add mbr pruning
-    /*query_start = clock();
+    query_start = clock();
     exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine, 2);
     query_end = clock();
-    device_time_mbr_pruning = query_end - query_start;*/
+    device_time_mbr_pruning = query_end - query_start;
 
     query_start = clock();
     exp_native_spatio_temporal_knn_join_armcpu_pushdown_batch_v1(&predicate, &rebuild_engine, 3);
@@ -2521,7 +2522,7 @@ int main(void) {
 
     //ingest_and_flush_porto_data_zcurve_full();
     //ingest_and_flush_porto_data_time_oid_full();
-    exp_spatio_temporal_knn_query_porto_scan();
+    //exp_spatio_temporal_knn_query_porto_scan();
 
 
     //ingest_and_flush_porto_data_zcurve_full();
@@ -2546,7 +2547,7 @@ int main(void) {
     //ingest_and_flush_porto_data_time_oid_full();
     //exp_spatio_temporal_query_porto_index_scan_low_selectivity_add_host_io_opt();
     //exp_id_temporal_query_porto();
-    //exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt();
+    exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt();
 
 
     printf("%d\n", calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM));

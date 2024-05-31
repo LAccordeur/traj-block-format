@@ -24,6 +24,7 @@
 
 static bool enable_estimated_result_size = false;
 static int REQUEST_BATCH_SIZE = 1;  // when using a large batch size, the performance is not good. This needs more investigation
+static int KNN_RANGE_EXTEND_VALUE = 100;
 
 struct host_result_buffer {
     void *buffer_ptr;
@@ -6069,10 +6070,10 @@ int spatio_temporal_knn_query_without_pushdown_multi_addr_batch(struct simple_qu
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
         if (enable_host_index) {
-            if (predicate->query_point.normalized_longitude <= entry->lon_max
-                && predicate->query_point.normalized_longitude >= entry->lon_min
-                && predicate->query_point.normalized_latitude <= entry->lat_max
-                && predicate->query_point.normalized_latitude >= entry->lat_min
+            if (predicate->query_point.normalized_longitude <= entry->lon_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_longitude >= entry->lon_min - KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude <= entry->lat_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude >= entry->lat_min - KNN_RANGE_EXTEND_VALUE
                     ) {
                 block_logical_addr_count++;
             }
@@ -6093,10 +6094,10 @@ int spatio_temporal_knn_query_without_pushdown_multi_addr_batch(struct simple_qu
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
         if (enable_host_index) {
-            if (predicate->query_point.normalized_longitude <= entry->lon_max
-                && predicate->query_point.normalized_longitude >= entry->lon_min
-                && predicate->query_point.normalized_latitude <= entry->lat_max
-                && predicate->query_point.normalized_latitude >= entry->lat_min
+            if (predicate->query_point.normalized_longitude <= entry->lon_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_longitude >= entry->lon_min - KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude <= entry->lat_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude >= entry->lat_min - KNN_RANGE_EXTEND_VALUE
                     ) {
                 block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
                 addr_vec_index++;
@@ -6130,11 +6131,11 @@ int spatio_temporal_knn_query_without_pushdown_batch(struct simple_query_engine 
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
         if (enable_host_index) {
-            if (predicate->query_point.normalized_longitude <= entry->lon_max
-                && predicate->query_point.normalized_longitude >= entry->lon_min
-                && predicate->query_point.normalized_latitude <= entry->lat_max
-                && predicate->query_point.normalized_latitude >= entry->lat_min
-                ) {
+            if (predicate->query_point.normalized_longitude <= entry->lon_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_longitude >= entry->lon_min - KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude <= entry->lat_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude >= entry->lat_min - KNN_RANGE_EXTEND_VALUE
+                    ) {
                 block_logical_addr_count++;
             }
         } else {
@@ -6154,11 +6155,11 @@ int spatio_temporal_knn_query_without_pushdown_batch(struct simple_query_engine 
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
         if (enable_host_index) {
-            if (predicate->query_point.normalized_longitude <= entry->lon_max
-                && predicate->query_point.normalized_longitude >= entry->lon_min
-                && predicate->query_point.normalized_latitude <= entry->lat_max
-                && predicate->query_point.normalized_latitude >= entry->lat_min
-                ) {
+            if (predicate->query_point.normalized_longitude <= entry->lon_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_longitude >= entry->lon_min - KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude <= entry->lat_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude >= entry->lat_min - KNN_RANGE_EXTEND_VALUE
+                    ) {
                 block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
                 addr_vec_index++;
             }
@@ -6334,7 +6335,7 @@ run_knn_query_in_host_batch(struct spatio_temporal_knn_predicate *predicate, str
 
     combine_and_sort(&knn_result_buffer);
     end = clock();
-    //print_result_buffer(&knn_result_buffer);
+    print_result_buffer(&knn_result_buffer);
     print_runtime_statistics(&knn_result_buffer.statistics);
     free_points_buffer(points_buffer_size);
     free_knn_result_buffer(&knn_result_buffer);
@@ -6461,6 +6462,7 @@ run_spatio_temporal_knn_query_host_multi_addr_batch(struct spatio_temporal_knn_p
     }
 
     combine_and_sort(&knn_result_buffer);
+    //print_result_buffer(&knn_result_buffer);
 
     end_all = clock();
     free_knn_result_buffer(&knn_result_buffer);
@@ -6485,11 +6487,11 @@ int spatio_temporal_knn_query_with_pushdown_batch(struct simple_query_engine *en
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
         if (enable_host_index) {
-            if (predicate->query_point.normalized_longitude <= entry->lon_max
-                && predicate->query_point.normalized_longitude >= entry->lon_min
-                && predicate->query_point.normalized_latitude <= entry->lat_max
-                && predicate->query_point.normalized_latitude >= entry->lat_min
-                ) {
+            if (predicate->query_point.normalized_longitude <= entry->lon_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_longitude >= entry->lon_min - KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude <= entry->lat_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude >= entry->lat_min - KNN_RANGE_EXTEND_VALUE
+                    ) {
                 block_logical_addr_count++;
             }
         } else {
@@ -6509,11 +6511,11 @@ int spatio_temporal_knn_query_with_pushdown_batch(struct simple_query_engine *en
     for (int i = 0; i <= index_storage->current_index; i++) {
         struct index_entry *entry = index_storage->index_entry_base[i];
         if (enable_host_index) {
-            if (predicate->query_point.normalized_longitude <= entry->lon_max
-                && predicate->query_point.normalized_longitude >= entry->lon_min
-                && predicate->query_point.normalized_latitude <= entry->lat_max
-                && predicate->query_point.normalized_latitude >= entry->lat_min
-                ) {
+            if (predicate->query_point.normalized_longitude <= entry->lon_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_longitude >= entry->lon_min - KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude <= entry->lat_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude >= entry->lat_min - KNN_RANGE_EXTEND_VALUE
+                    ) {
                 block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
                 addr_vec_index++;
             }
@@ -6662,6 +6664,7 @@ run_spatio_temporal_knn_query_device_batch(struct spatio_temporal_knn_predicate 
         struct result_item item = knn_buffer.result_buffer_k[i];
         printf("oid: %d, dist: %d\n", item.point.oid, item.distance);
     }*/
+    print_result_buffer(&knn_buffer);
     printf("result k value: %d\n", knn_buffer.current_buffer_size);
     print_runtime_statistics(&knn_buffer.statistics);
     free_knn_result_buffer(&knn_buffer);
