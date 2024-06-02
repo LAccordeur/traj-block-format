@@ -216,6 +216,8 @@ int spatio_temporal_knn_query_without_pushdown_batch(struct simple_query_engine 
 // option specifies the pushdown method: 1 -> naive implementation (w/o pruning and sorting optimization), 2 -> naive + mbr pruning, 3 -> optimized version
 int spatio_temporal_knn_query_with_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_knn_predicate *predicate, int option, bool enable_host_index);
 
+int spatio_temporal_knn_query_do_nothing_batch(struct simple_query_engine *engine, struct spatio_temporal_knn_predicate *predicate, bool enable_host_index);
+
 
 /**
  * knn join query

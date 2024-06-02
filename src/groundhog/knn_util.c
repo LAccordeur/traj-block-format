@@ -243,7 +243,7 @@ void buffered_knn_max_heap_insert(struct buffered_knn_max_heap *bh, struct resul
                     bh->buffer_size = 0;
                     bh->max_distance_ref = current_max_dist;
                     bh->statistics.discard_count++;
-                    printf("i am here buffer clear\n");
+                    //printf("i am here buffer clear\n");
                 } else {
                     if (item->distance < h->arr[0].distance) {
                         knn_max_heap_replace(h, item);
@@ -260,7 +260,7 @@ void buffered_knn_max_heap_insert(struct buffered_knn_max_heap *bh, struct resul
                     bh->buffer_size = 0;
                     bh->max_distance_ref = h->arr[0].distance;
                     bh->statistics.non_discard_count++;
-                    printf("i am here\n");
+                    //printf("i am here\n");
                 }
             }
         } else {

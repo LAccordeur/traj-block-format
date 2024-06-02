@@ -24,7 +24,7 @@
 
 static bool enable_estimated_result_size = false;
 static int REQUEST_BATCH_SIZE = 1;  // when using a large batch size, the performance is not good. This needs more investigation
-static int KNN_RANGE_EXTEND_VALUE = 100;
+static int KNN_RANGE_EXTEND_VALUE = 5000;
 
 struct host_result_buffer {
     void *buffer_ptr;
@@ -350,16 +350,24 @@ void ingest_data_via_zcurve_partition(struct simple_query_engine *engine, FILE *
 
         int used_buffer_size = block_num - i < buffer_size ? block_num - i : buffer_size;
         int total_points_num = points_num * used_buffer_size;
+        printf("total point num: %d\n", total_points_num);
 
         struct traj_point **points_buffer = allocate_points_memory(total_points_num);
         int read_line_num = read_points_from_csv(fp, points_buffer, i * points_num, total_points_num);
+        printf("read line num: %d\n", read_line_num);
         if (read_line_num == 0) {
             break;
         }
+
         sort_traj_points_zcurve(points_buffer, total_points_num);
 
+        int point_count = 0;
         for (int j = 0; j < used_buffer_size; j++) {
             struct traj_point **points = points_buffer + j * points_num;
+            point_count += points_num;
+            /*if (point_count > read_line_num) {
+                break;
+            }*/ // for segment num evaluation
 
             // convert and put this data to traj storage
             void *data = malloc(TRAJ_BLOCK_SIZE);
@@ -370,6 +378,8 @@ void ingest_data_via_zcurve_partition(struct simple_query_engine *engine, FILE *
             struct index_entry *entry = malloc(sizeof(struct index_entry));
             init_index_entry(entry);
             fill_index_entry(entry, points, points_num, data_addresses.physical_ptr, data_addresses.logical_adr);
+            //printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
+
             append_index_entry_to_storage(index_storage, entry);
 
             // update seg_meta store
@@ -6120,6 +6130,65 @@ int spatio_temporal_knn_query_without_pushdown_multi_addr_batch(struct simple_qu
 }
 
 
+int spatio_temporal_knn_query_do_nothing_batch(struct simple_query_engine *engine, struct spatio_temporal_knn_predicate *predicate, bool enable_host_index) {
+
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    // calculate the matched block num
+    int block_logical_addr_count = 0;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        if (enable_host_index) {
+            if (predicate->query_point.normalized_longitude <= entry->lon_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_longitude >= entry->lon_min - KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude <= entry->lat_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude >= entry->lat_min - KNN_RANGE_EXTEND_VALUE
+                    ) {
+                block_logical_addr_count++;
+            }
+        } else {
+            block_logical_addr_count++;
+        }
+    }
+
+    if (block_logical_addr_count == 0) {
+        return 0;
+    }
+
+    // get the match block id vector
+    //int block_logical_addr_vec[block_logical_addr_count];   // TODO use malloc for large vector
+    int *block_logical_addr_vec = malloc(block_logical_addr_count * sizeof(int));
+
+    int addr_vec_index = 0;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        if (enable_host_index) {
+            if (predicate->query_point.normalized_longitude <= entry->lon_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_longitude >= entry->lon_min - KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude <= entry->lat_max + KNN_RANGE_EXTEND_VALUE
+                && predicate->query_point.normalized_latitude >= entry->lat_min - KNN_RANGE_EXTEND_VALUE
+                    ) {
+                block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
+                addr_vec_index++;
+            }
+
+        } else {
+            block_logical_addr_vec[addr_vec_index] = entry->block_logical_adr;
+            addr_vec_index++;
+        }
+    }
+
+
+    printf("[host batch] read block num: %d\n", block_logical_addr_count);
+    // run query
+
+    free(block_logical_addr_vec);
+    return block_logical_addr_count;
+}
+
+
 int spatio_temporal_knn_query_without_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_knn_predicate *predicate, bool enable_host_index) {
 
     struct index_entry_storage *index_storage = &engine->index_storage;
@@ -6187,33 +6256,37 @@ int spatio_temporal_knn_query_without_pushdown_batch(struct simple_query_engine 
  * @param result_buffer
  * @return
  */
-static int spatio_temporal_knn_query_raw_trajectory_block(void* data_block, struct spatio_temporal_knn_predicate *predicate, struct knn_result_buffer *result_buffer) {
+static int total_segment_num = 0;
+static int total_checked_segment_num = 0;
+static int spatio_temporal_knn_query_raw_trajectory_block(void* data_block, struct spatio_temporal_knn_predicate *predicate, struct buffered_knn_max_heap *result_buffer) {
     int result_count = 0;
     struct traj_block_header block_header;
     parse_traj_block_for_header(data_block, &block_header);
 
     int traj_point_size = get_traj_point_size();
-    long current_max_dist = result_buffer->max_distance;
+    long current_max_dist = knn_max_heap_find_max(result_buffer->h).distance;
 
     struct seg_meta meta_array[block_header.seg_count];
     parse_traj_block_for_seg_meta_section(data_block, meta_array, block_header.seg_count);
 
     // pruning based on mbr
-    long minmaxdist_min = LONG_MAX;
+    /*long minmaxdist_min = LONG_MAX;
     for (int j = 0; j < block_header.seg_count; j++) {
         struct seg_meta meta_item = meta_array[j];
         long minmaxdist = cal_minmax_distance(&(predicate->query_point), &meta_item);
         if (minmaxdist < minmaxdist_min) {
             minmaxdist_min = minmaxdist;
         }
-    }
+    }*/
 
     for (int j = 0; j < block_header.seg_count; j++) {
         struct seg_meta meta_item = meta_array[j];
+        total_segment_num++;
+        //print_seg_meta(&meta_item);
         long min_dist = cal_min_distance(&(predicate->query_point), &meta_item);
-        if (min_dist <= current_max_dist && min_dist <= minmaxdist_min) {
-        //if (min_dist <= current_max_dist) {
-                result_buffer->statistics.checked_segment_num++;
+        //if (min_dist <= current_max_dist && min_dist <= minmaxdist_min) {
+        if (min_dist <= current_max_dist || result_buffer->h->size < result_buffer->h->capacity) {
+                total_checked_segment_num++;
                 int data_seg_points_num = meta_item.seg_size / traj_point_size;
                 struct traj_point *point_ptr = (struct traj_point *)((char *) data_block + meta_item.seg_offset);
 
@@ -6221,9 +6294,9 @@ static int spatio_temporal_knn_query_raw_trajectory_block(void* data_block, stru
 
                     struct traj_point *point = &point_ptr[k];
                     long distance = cal_points_distance(&(predicate->query_point), point);
-                    if (distance < result_buffer->max_distance) {
+                    if (distance < result_buffer->h->arr[0].distance || result_buffer->h->size < result_buffer->h->capacity) {
                         struct result_item item = {*point, distance};
-                        add_item_to_buffer(result_buffer, &item);
+                        buffered_knn_max_heap_insert(result_buffer, &item);
                         result_count++;
 
                     }
@@ -6232,6 +6305,7 @@ static int spatio_temporal_knn_query_raw_trajectory_block(void* data_block, stru
 
 
     }
+    //printf("total segment num: %d, total checked: %d\n", total_segment_num, total_checked_segment_num);
 
     return result_count;
 }
@@ -6242,8 +6316,7 @@ run_knn_query_in_host_batch(struct spatio_temporal_knn_predicate *predicate, str
     clock_t start, start_config, end;
     clock_t start_read, end_read, pure_read;
     clock_t start_computation, end_computation, pure_computation;
-    struct knn_result_buffer knn_result_buffer;
-    init_knn_result_buffer(predicate->k, &knn_result_buffer);
+    struct buffered_knn_max_heap *knn_result_buffer = create_buffered_knn_max_heap(predicate->k, 8);
 
     pure_read = 0;
     pure_computation = 0;
@@ -6293,7 +6366,7 @@ run_knn_query_in_host_batch(struct spatio_temporal_knn_predicate *predicate, str
                     for (int index = 0; index < block_count_value; index++) {
                         start_computation = clock();
                         int count = spatio_temporal_knn_query_raw_trajectory_block(
-                                buffer_ptr + index * TRAJ_BLOCK_SIZE, predicate, &knn_result_buffer);
+                                buffer_ptr + index * TRAJ_BLOCK_SIZE, predicate, knn_result_buffer);
                         result_count += count;
                         end_computation = clock();
                         pure_computation += (end_computation - start_computation);
@@ -6322,7 +6395,7 @@ run_knn_query_in_host_batch(struct spatio_temporal_knn_predicate *predicate, str
         for (int index = 0; index < block_count_value; index++) {
             start_computation = clock();
             int count = spatio_temporal_knn_query_raw_trajectory_block(
-                    buffer_ptr + index * TRAJ_BLOCK_SIZE, predicate, &knn_result_buffer);
+                    buffer_ptr + index * TRAJ_BLOCK_SIZE, predicate, knn_result_buffer);
             result_count += count;
             end_computation = clock();
             pure_computation += (end_computation - start_computation);
@@ -6333,12 +6406,13 @@ run_knn_query_in_host_batch(struct spatio_temporal_knn_predicate *predicate, str
         free(result_buffer_vec[k]);
     }
 
-    combine_and_sort(&knn_result_buffer);
+    buffered_knn_max_heap_compact(knn_result_buffer);
     end = clock();
-    print_result_buffer(&knn_result_buffer);
-    print_runtime_statistics(&knn_result_buffer.statistics);
+    //print_knn_max_heap(knn_result_buffer->h);
+    //print_result_buffer(&knn_result_buffer);
+    //print_runtime_statistics(&knn_result_buffer.statistics);
     free_points_buffer(points_buffer_size);
-    free_knn_result_buffer(&knn_result_buffer);
+    free_buffered_knn_max_heap(knn_result_buffer);
     printf("[host batch] pure read time: %f\n",(double)(pure_read));
     printf("[host batch] pure computation time: %f\n",(double)(pure_computation));
     printf("[host batch] pure read and computation time: %f\n",(double)(pure_read + pure_computation));
@@ -6358,8 +6432,7 @@ run_spatio_temporal_knn_query_host_multi_addr_batch(struct spatio_temporal_knn_p
     clock_t start_all, end_all;
     int total_result_block_num = 0;
     start_all = clock();
-    struct knn_result_buffer knn_result_buffer;
-    init_knn_result_buffer(predicate->k, &knn_result_buffer);
+    struct buffered_knn_max_heap *knn_result_buffer = create_buffered_knn_max_heap(predicate->k, 8);
     fill_points_buffer(points_buffer_size);
 
     // prepare batch parameters
@@ -6416,7 +6489,7 @@ run_spatio_temporal_knn_query_host_multi_addr_batch(struct spatio_temporal_knn_p
                 for (int j = 0; j < batch_buffer_count; j++) {
                     void* block_ptr = batch_base + j * TRAJ_BLOCK_SIZE;
                     comp_start = clock();
-                    result_count += spatio_temporal_knn_query_raw_trajectory_block(block_ptr, predicate, &knn_result_buffer);
+                    result_count += spatio_temporal_knn_query_raw_trajectory_block(block_ptr, predicate, knn_result_buffer);
                     comp_end = clock();
                     pure_comp += (comp_end - comp_start);
                 }
@@ -6446,7 +6519,7 @@ run_spatio_temporal_knn_query_host_multi_addr_batch(struct spatio_temporal_knn_p
         for (int j = 0; j < batch_buffer_count; j++) {
             void* block_ptr = batch_base + j * TRAJ_BLOCK_SIZE;
             comp_start = clock();
-            result_count += spatio_temporal_knn_query_raw_trajectory_block(block_ptr, predicate, &knn_result_buffer);
+            result_count += spatio_temporal_knn_query_raw_trajectory_block(block_ptr, predicate, knn_result_buffer);
             comp_end = clock();
             pure_comp += (comp_end - comp_start);
             //print_isp_descriptor(isp_desc_vec[k]);
@@ -6461,11 +6534,11 @@ run_spatio_temporal_knn_query_host_multi_addr_batch(struct spatio_temporal_knn_p
         free(lba_vec_ptr[m]);
     }
 
-    combine_and_sort(&knn_result_buffer);
+    buffered_knn_max_heap_compact(knn_result_buffer);
     //print_result_buffer(&knn_result_buffer);
 
     end_all = clock();
-    free_knn_result_buffer(&knn_result_buffer);
+    free_buffered_knn_max_heap(knn_result_buffer);
     free_points_buffer(points_buffer_size);
     printf("batch function call num: %d\n", batch_function_call_num);
     printf("[host multi batch] estimated result block number: %d\n", total_result_block_num);
@@ -6535,7 +6608,7 @@ int spatio_temporal_knn_query_with_pushdown_batch(struct simple_query_engine *en
     return result_count;
 }
 
-static int spatio_temporal_knn_query_isp_blocks(void* data_blocks, struct spatio_temporal_knn_predicate *predicate, struct knn_result_buffer *result_buffer) {
+static int spatio_temporal_knn_query_isp_blocks(void* data_blocks, struct spatio_temporal_knn_predicate *predicate, struct buffered_knn_max_heap *result_buffer) {
     int result_count = 0;
     memcpy(&result_count, data_blocks, 4);
 
@@ -6544,8 +6617,8 @@ static int spatio_temporal_knn_query_isp_blocks(void* data_blocks, struct spatio
     for (int i = 0; i < result_count; i++) {
         struct result_item tmp = items_base[i];
         //printf("oid: %d, lon: %d, lat: %d, time: %d\n", tmp.oid, tmp.normalized_longitude, tmp.normalized_latitude, tmp.timestamp_sec);
-        add_item_to_buffer(result_buffer, &tmp);
-
+        //add_item_to_buffer(result_buffer, &tmp);
+        buffered_knn_max_heap_insert(result_buffer, &tmp);
     }
     return result_count;
 }
@@ -6563,8 +6636,7 @@ run_spatio_temporal_knn_query_device_batch(struct spatio_temporal_knn_predicate 
     start_all = clock();
     fill_points_buffer(points_buffer_size);
 
-    struct knn_result_buffer knn_buffer;
-    init_knn_result_buffer(predicate->k, &knn_buffer);
+    struct buffered_knn_max_heap *knn_buffer = create_buffered_knn_max_heap(predicate->k, 8);
 
     // prepare batch parameters
     int batch_size = REQUEST_BATCH_SIZE; //  fix bug here -> fixed: caused by the same request used in the batch using the same lba_array (before, we do not use malloc for lba_array)
@@ -6625,7 +6697,7 @@ run_spatio_temporal_knn_query_device_batch(struct spatio_temporal_knn_predicate 
             for (int k = 0; k < batch_size; k++) {
                 void* batch_base = result_buffer_vec[k];
 
-                result_count += spatio_temporal_knn_query_isp_blocks(batch_base, predicate, &knn_buffer);
+                result_count += spatio_temporal_knn_query_isp_blocks(batch_base, predicate, knn_buffer);
             }
             batch_count = 0;
 
@@ -6647,7 +6719,7 @@ run_spatio_temporal_knn_query_device_batch(struct spatio_temporal_knn_predicate 
     for (int k = 0; k < batch_count; k++) {
         void* batch_base = result_buffer_vec[k];
 
-        result_count += spatio_temporal_knn_query_isp_blocks(batch_base, predicate, &knn_buffer);
+        result_count += spatio_temporal_knn_query_isp_blocks(batch_base, predicate, knn_buffer);
     }
 
     pure_read += (end - start);
@@ -6658,16 +6730,16 @@ run_spatio_temporal_knn_query_device_batch(struct spatio_temporal_knn_predicate 
     }
 
 
-    combine_and_sort(&knn_buffer);
+    buffered_knn_max_heap_compact(knn_buffer);
 
     /*for (int i = 0; i < knn_buffer.current_buffer_size; i++) {
         struct result_item item = knn_buffer.result_buffer_k[i];
         printf("oid: %d, dist: %d\n", item.point.oid, item.distance);
     }*/
-    print_result_buffer(&knn_buffer);
-    printf("result k value: %d\n", knn_buffer.current_buffer_size);
-    print_runtime_statistics(&knn_buffer.statistics);
-    free_knn_result_buffer(&knn_buffer);
+    //print_knn_max_heap(knn_buffer->h);
+    printf("result k value: %d\n", knn_buffer->h->size);
+    //print_runtime_statistics(&knn_buffer.statistics);
+    free_buffered_knn_max_heap(knn_buffer);
     free_points_buffer(points_buffer_size);
     end_all = clock();
     printf("batch function call num: %d\n", total_batch_func_num);

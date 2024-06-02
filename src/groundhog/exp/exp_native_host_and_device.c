@@ -2188,6 +2188,18 @@ static int exp_native_spatio_temporal_knn_host_batch_v1(struct spatio_temporal_k
     return engine_result;
 }
 
+static int exp_native_spatio_temporal_knn_do_nothing_batch_v1(struct spatio_temporal_knn_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+
+    clock_t start, end;
+    start = clock();
+    int engine_result = spatio_temporal_knn_query_do_nothing_batch(rebuild_engine, predicate, enable_host_index);
+    end = clock();
+    printf("[host] query time (total time, including all): %f\n", (double )(end - start));
+    printf("engine result: %d\n", engine_result);
+
+    return engine_result;
+}
+
 static int exp_native_spatio_temporal_knn_armcpu_pushdown_batch_v1(struct spatio_temporal_knn_predicate *predicate, struct simple_query_engine *rebuild_engine, int option) {
 
     clock_t start, end;
@@ -2225,8 +2237,8 @@ void exp_spatio_temporal_knn_query_porto_scan() {
 
     FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_knn_k50.query", "r");
     // read queries
-    //int query_num = 100;
-    int query_num = 20;
+    int query_num = 100;
+    //int query_num = 20;
     struct spatio_temporal_knn_predicate **predicates = allocate_spatio_temporal_knn_predicate_mem(query_num);
     read_spatio_temporal_knn_queries_from_csv(query_fp, predicates, query_num);
 
@@ -2243,7 +2255,7 @@ void exp_spatio_temporal_knn_query_porto_scan() {
     for (int i = 0; i < query_num; i++) {
         printf("\n\ni: %d\n", i);
         predicate_ptr = predicates[i];
-        predicate_ptr->k = 20;
+        predicate_ptr->k = 500;
 
         query_start = clock();
         running_time = exp_native_spatio_temporal_knn_host_batch_v1(predicate_ptr, &rebuild_engine);
@@ -2311,9 +2323,10 @@ void exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt() {
 
 
     FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_knn_k90.query", "r");
+    //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_knn_k90.query", "r");
     // read queries
-    //int query_num = 100;
-    int query_num = 20;
+    int query_num = 100;
+    //int query_num = 20;
     struct spatio_temporal_knn_predicate **predicates = allocate_spatio_temporal_knn_predicate_mem(query_num);
     read_spatio_temporal_knn_queries_from_csv(query_fp, predicates, query_num);
 
@@ -2328,11 +2341,13 @@ void exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt() {
     long device_time[query_num];
     long device_time_pure[query_num];
 
+    long block_num[query_num];
+
     int running_time;
     for (int i = 0; i < query_num; i++) {
         printf("\n\ni: %d\n", i);
         predicate_ptr = predicates[i];
-        predicate_ptr->k = 400;
+        predicate_ptr->k = 700;
 
         query_start = clock();
         running_time = exp_native_spatio_temporal_knn_host_multi_addr_batch_v1(predicate_ptr, &rebuild_engine);
@@ -2367,6 +2382,9 @@ void exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt() {
         query_end = clock();
         device_time[i] = query_end - query_start;
         device_time_pure[i] = running_time;
+
+        running_time = exp_native_spatio_temporal_knn_do_nothing_batch_v1(predicate_ptr, &rebuild_engine);
+        block_num[i] = running_time;
     }
     end = clock();
     printf("total time: %f\n",(double)(end-start));
@@ -2378,6 +2396,7 @@ void exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt() {
     printf("[device add mbr pruning] average time: %f, average pure time: %f\n", average_values(device_time_mbr_pruning, query_num),
            average_values(device_time_mbr_pruning_pure, query_num));
     printf("[device] average time: %f, average pure time: %f\n", average_values(device_time, query_num), average_values(device_time_pure, query_num));
+    printf("[average block num] %f\n", average_values(block_num, query_num));
 
     free_spatio_temporal_knn_predicate_mem(predicates, query_num);
     free_query_engine(&rebuild_engine);
@@ -2538,11 +2557,13 @@ int main(void) {
     // segment num
     //ingest_and_flush_porto_data_zcurve_for_segment_test();
     //exp_spatio_temporal_knn_query_porto_scan();
+    //exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt();
     //exp_spatio_temporal_query_porto_scan_segment_num();
     //exp_spatio_temporal_query_porto_index_scan_segment_num();
 
 
     // index scan: two new queries with small selectivity and add new host io opt
+    //ingest_and_flush_nyc_data_zcurve(197949);
     //ingest_and_flush_porto_data_zcurve_full();
     //ingest_and_flush_porto_data_time_oid_full();
     //exp_spatio_temporal_query_porto_index_scan_low_selectivity_add_host_io_opt();

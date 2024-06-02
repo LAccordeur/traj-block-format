@@ -10,7 +10,7 @@
 #include "groundhog/normalization_util.h"
 #include "groundhog/common_util.h"
 
-static bool enable_host_index = false;
+static bool enable_host_index = true;
 
 static void ingest_and_flush_synthetic_data_large(int data_block_num_each_run, int run_num) {
     init_and_mk_fs_for_traj(false);
@@ -113,6 +113,18 @@ static void print_large_file_info() {
     free_query_engine(&rebuild_engine);
 }
 
+static int exp_native_spatio_temporal_knn_host_multi_addr_batch_v1(struct spatio_temporal_knn_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+
+    clock_t start, end;
+    start = clock();
+    int engine_result = spatio_temporal_knn_query_without_pushdown_multi_addr_batch(rebuild_engine, predicate, enable_host_index);
+    end = clock();
+    printf("[host] query time (total time, including all): %f\n", (double )(end - start));
+    printf("engine result: %d\n", engine_result);
+
+    return engine_result;
+}
+
 static int exp_native_spatio_temporal_knn_host_batch_v1(struct spatio_temporal_knn_predicate *predicate, struct simple_query_engine *rebuild_engine) {
 
     clock_t start, end;
@@ -137,6 +149,17 @@ static int exp_native_spatio_temporal_knn_armcpu_pushdown_batch_v1(struct spatio
     return engine_result;
 }
 
+static int exp_native_spatio_temporal_knn_do_nothing_batch_v1(struct spatio_temporal_knn_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+
+    clock_t start, end;
+    start = clock();
+    int engine_result = spatio_temporal_knn_query_do_nothing_batch(rebuild_engine, predicate, enable_host_index);
+    end = clock();
+    printf("[host] query time (total time, including all): %f\n", (double )(end - start));
+    printf("engine result: %d\n", engine_result);
+
+    return engine_result;
+}
 
 void exp_spatio_temporal_knn_query_osm_scan_subset() {
     init_and_mk_fs_for_traj(true);
@@ -163,7 +186,7 @@ void exp_spatio_temporal_knn_query_osm_scan_subset() {
     // read queries
     //int query_num = 100;
     //int query_num = 20;
-    int query_num = 20;
+    int query_num = 100;
     struct spatio_temporal_knn_predicate **predicates_k10 = allocate_spatio_temporal_knn_predicate_mem(query_num);
     read_spatio_temporal_knn_queries_from_csv(query_fp_k10, predicates_k10, query_num);
     struct spatio_temporal_knn_predicate **predicates_k30 = allocate_spatio_temporal_knn_predicate_mem(query_num);
@@ -187,6 +210,8 @@ void exp_spatio_temporal_knn_query_osm_scan_subset() {
     read_spatio_temporal_knn_queries_from_csv(query_fp_k90, predicates, query_num);
 
 
+    long host_ioopt_time[query_num];
+    long host_ioopt_time_pure[query_num];
     long host_time[query_num];
     long host_time_pure[query_num];
     long device_time_naive[query_num];
@@ -197,10 +222,19 @@ void exp_spatio_temporal_knn_query_osm_scan_subset() {
     long device_time_pure[query_num];
 
     int running_time;
+    long block_num[query_num];
+
     for (int i = 0; i < query_num; i++) {
         printf("\n\ni: %d\n", i);
         predicate_ptr = predicates[i];
-        printf("query point: (%d, %d), predicate k: %d\n", predicate_ptr->query_point.normalized_longitude, predicate_ptr->query_point.normalized_latitude, predicate_ptr->k);
+        predicate_ptr->k = 700;
+
+        query_start = clock();
+        running_time = exp_native_spatio_temporal_knn_host_multi_addr_batch_v1(predicate_ptr, &rebuild_engine);
+        query_end = clock();
+        host_ioopt_time[i] = query_end - query_start;
+        host_ioopt_time_pure[i] = running_time;
+
 
         query_start = clock();
         running_time = exp_native_spatio_temporal_knn_host_batch_v1(predicate_ptr, &rebuild_engine);
@@ -228,16 +262,21 @@ void exp_spatio_temporal_knn_query_osm_scan_subset() {
         query_end = clock();
         device_time[i] = query_end - query_start;
         device_time_pure[i] = running_time;
+
+        running_time = exp_native_spatio_temporal_knn_do_nothing_batch_v1(predicate_ptr, &rebuild_engine);
+        block_num[i] = running_time;
     }
     end = clock();
     printf("total time: %f\n",(double)(end-start));
 
-    printf("\n\n[host] average time: %f, average pure time: %f\n", average_values(host_time, query_num), average_values(host_time_pure, query_num));
+    printf("\n\n[host io opt] average time: %f, average pure time: %f\n", average_values(host_ioopt_time, query_num), average_values(host_ioopt_time_pure, query_num));
+    printf("[host] average time: %f, average pure time: %f\n", average_values(host_time, query_num), average_values(host_time_pure, query_num));
     printf("[device naive] average time: %f, average pure time: %f\n", average_values(device_time_naive, query_num),
            average_values(device_time_naive_pure, query_num));
     printf("[device add mbr pruning] average time: %f, average pure time: %f\n", average_values(device_time_mbr_pruning, query_num),
            average_values(device_time_mbr_pruning_pure, query_num));
     printf("[device] average time: %f, average pure time: %f\n", average_values(device_time, query_num), average_values(device_time_pure, query_num));
+    printf("[average block num] %f\n", average_values(block_num, query_num));
 
     free_spatio_temporal_knn_predicate_mem(predicates, query_num);
     free_query_engine(&rebuild_engine);
@@ -349,10 +388,10 @@ int main(void)  {
 
     //ingest_and_flush_osm_data_zcurve_large(197949, 1);
     //ingest_and_flush_osm_data_time_oid_large(197949, 1);
-    //exp_spatio_temporal_knn_query_osm_scan_subset();
+    exp_spatio_temporal_knn_query_osm_scan_subset();
 
 
     //ingest_and_flush_osm_data_time_oid_large(197949, 1);
     //ingest_and_flush_osm_data_time_oid_full();
-    exp_spatio_temporal_knn_query_osm_scan();
+    //exp_spatio_temporal_knn_query_osm_scan();
 }
