@@ -59,6 +59,49 @@ static void ingest_and_flush_osm_data_zcurve_large(int data_block_num_each_run, 
     spdk_flush_static_fs_meta_for_traj();
 }
 
+static void ingest_and_flush_osm_data_zcurve_large_with_sort_option(int data_block_num_each_run, int run_num, int sort_option) {
+    init_and_mk_fs_for_traj(false);
+
+    FILE *data_fp = fopen("/home/yangguo/Dataset/osm/osm_points_with_time_v1.csv", "r");
+    // ingest data
+    struct simple_query_engine query_engine;
+    struct my_file data_file = {NULL, DATA_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file index_file = {NULL, INDEX_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file meta_file = {NULL, SEG_META_FILENAME, "w", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+
+    for (int i = 0; i < run_num; i++) {
+        printf("the %d run of data ingestion\n", i);
+        init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+        ingest_and_flush_osm_data_via_zcurve_partition_with_block_index_with_sort_option(&query_engine, data_fp, i * data_block_num_each_run, data_block_num_each_run, sort_option);
+
+        // print temporal meta information for each block
+        double total_time_width = 0;
+        double total_lon_width = 0;
+        double total_lat_width = 0;
+        // print temporal meta information for each block
+        struct index_entry_storage *index_storage = &query_engine.index_storage;
+        for (int n = 0; n <= index_storage->current_index; n++) {
+            struct index_entry *entry = index_storage->index_entry_base[n];
+            printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
+            total_time_width += (entry->time_max - entry->time_min);
+            total_lon_width += (entry->lon_max - entry->lon_min);
+            total_lat_width += (entry->lat_max - entry->lat_min);
+        }
+        printf("mbr shape: time width: %f, lon width: %f, lat width: %f\n", total_time_width / index_storage->current_index, total_lon_width / index_storage->current_index,
+               total_lat_width / index_storage->current_index);
+        printf("block num: %d\n", index_storage->current_index);
+
+        free_query_engine(&query_engine);
+    }
+
+
+    print_spdk_static_fs_meta_for_traj();
+    // save filesystem meta
+    spdk_flush_static_fs_meta_for_traj();
+}
+
+
 static void ingest_and_flush_osm_data_time_oid_large(int data_block_num_each_run, int run_num) {
     init_and_mk_fs_for_traj(false);
 
@@ -380,6 +423,17 @@ void exp_spatio_temporal_knn_query_osm_scan() {
     free_query_engine(&rebuild_engine);
 }
 
+void ingest_and_flush_osm_data_zcurve_time_preferred() {
+    ingest_and_flush_osm_data_zcurve_large_with_sort_option(197949, 1, 1);
+}
+
+void ingest_and_flush_osm_data_zcurve_space_preferred() {
+    ingest_and_flush_osm_data_zcurve_large_with_sort_option(197949, 1, 2);
+}
+
+void ingest_and_flush_osm_data_zcurve_no_preferred() {
+    ingest_and_flush_osm_data_zcurve_large_with_sort_option(197949, 1, 3);
+}
 
 int main(void)  {
     //ingest_and_flush_synthetic_data_large(2, 4);
@@ -388,10 +442,17 @@ int main(void)  {
 
     //ingest_and_flush_osm_data_zcurve_large(197949, 1);
     //ingest_and_flush_osm_data_time_oid_large(197949, 1);
-    exp_spatio_temporal_knn_query_osm_scan_subset();
+    //exp_spatio_temporal_knn_query_osm_scan_subset();
 
 
     //ingest_and_flush_osm_data_time_oid_large(197949, 1);
     //ingest_and_flush_osm_data_time_oid_full();
     //exp_spatio_temporal_knn_query_osm_scan();
+
+    // mbr shape: mbr shape: time width: 13.237264, lon width: 1491549.035231, lat width: 1686129.582926
+    //ingest_and_flush_osm_data_zcurve_time_preferred();
+    // mbr shape: mbr shape: time width: 46242.305252, lon width: 24425.988224, lat width: 18894.890936
+    //ingest_and_flush_osm_data_zcurve_space_preferred();
+    // mbr shape: time width: 11448.553837, lon width: 203355.715557, lat width: 283639.642376
+    //ingest_and_flush_osm_data_zcurve_no_preferred();
 }

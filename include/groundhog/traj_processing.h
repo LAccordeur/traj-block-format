@@ -20,6 +20,8 @@ void sort_traj_points(struct traj_point **points, int array_size);
  */
 void sort_traj_points_zcurve(struct traj_point **points, int array_size);
 
+void sort_traj_points_zcurve_with_option(struct traj_point **points, int array_size, int option);
+
 /**
  * deprecated
  *

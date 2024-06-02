@@ -93,6 +93,40 @@ static void ingest_and_flush_porto_data_zcurve(int data_block_num) {
 
 }
 
+static void ingest_and_flush_porto_data_zcurve_with_sort_option(int data_block_num, int sort_option) {
+    init_and_mk_fs_for_traj(false);
+
+    //int data_block_num = 1024;
+
+    FILE *data_fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
+    // ingest data
+    struct simple_query_engine query_engine;
+    struct my_file data_file = {NULL, DATA_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file index_file = {NULL, INDEX_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file meta_file = {NULL, SEG_META_FILENAME, "w", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+    ingest_and_flush_data_via_zcurve_partition_with_sort_option(&query_engine, data_fp, data_block_num, sort_option);
+
+    double total_time_width = 0;
+    double total_lon_width = 0;
+    double total_lat_width = 0;
+    // print temporal meta information for each block
+    struct index_entry_storage *index_storage = &query_engine.index_storage;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
+        total_time_width += (entry->time_max - entry->time_min);
+        total_lon_width += (entry->lon_max - entry->lon_min);
+        total_lat_width += (entry->lat_max - entry->lat_min);
+    }
+    printf("mbr shape: time width: %f, lon width: %f, lat width: %f\n", total_time_width / index_storage->current_index, total_lon_width / index_storage->current_index,
+           total_lat_width / index_storage->current_index);
+    printf("block num: %d\n", index_storage->current_index);
+    // save filesystem meta
+    spdk_flush_static_fs_meta_for_traj();
+
+}
+
 static void ingest_and_flush_porto_data_zcurve_segment_num(int data_block_num) {
     init_and_mk_fs_for_traj(false);
 
@@ -192,6 +226,42 @@ static void ingest_and_flush_nyc_data_zcurve(int data_block_num) {
         struct index_entry *entry = index_storage->index_entry_base[i];
         printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
     }
+
+    // save filesystem meta
+    spdk_flush_static_fs_meta_for_traj();
+
+}
+
+static void ingest_and_flush_nyc_data_zcurve_with_sort_option(int data_block_num, int sort_option) {
+    init_and_mk_fs_for_traj(false);
+
+    //int data_block_num = 1024;
+
+    FILE *data_fp = fopen("/home/yangguo/Dataset/nyctaxi/pickup_trip_data_2010_2013_full_v1.csv", "r");
+    // ingest data
+    struct simple_query_engine query_engine;
+    struct my_file data_file = {NULL, DATA_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file index_file = {NULL, INDEX_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file meta_file = {NULL, SEG_META_FILENAME, "w", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+    ingest_and_flush_nyc_data_via_zcurve_partition_with_sort_option(&query_engine, data_fp, data_block_num, sort_option);
+
+    // print temporal meta information for each block
+    double total_time_width = 0;
+    double total_lon_width = 0;
+    double total_lat_width = 0;
+    // print temporal meta information for each block
+    struct index_entry_storage *index_storage = &query_engine.index_storage;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
+        total_time_width += (entry->time_max - entry->time_min);
+        total_lon_width += (entry->lon_max - entry->lon_min);
+        total_lat_width += (entry->lat_max - entry->lat_min);
+    }
+    printf("mbr shape: time width: %f, lon width: %f, lat width: %f\n", total_time_width / index_storage->current_index, total_lon_width / index_storage->current_index,
+           total_lat_width / index_storage->current_index);
+    printf("block num: %d\n", index_storage->current_index);
 
     // save filesystem meta
     spdk_flush_static_fs_meta_for_traj();
@@ -1509,6 +1579,38 @@ void ingest_and_flush_porto_data_zcurve_full() {
 }
 
 
+void ingest_and_flush_porto_data_zcurve_full_time_preferred() {
+    //ingest_and_flush_porto_data_zcurve(277949);
+    ingest_and_flush_porto_data_zcurve_with_sort_option(197949, 1);
+
+}
+
+void ingest_and_flush_porto_data_zcurve_full_space_preferred() {
+    //ingest_and_flush_porto_data_zcurve(277949);
+    ingest_and_flush_porto_data_zcurve_with_sort_option(197949, 2);
+
+}
+
+void ingest_and_flush_porto_data_zcurve_full_no_preferred() {
+    //ingest_and_flush_porto_data_zcurve(277949);
+    ingest_and_flush_porto_data_zcurve_with_sort_option(197949, 3);
+
+}
+
+
+void ingest_and_flush_nyc_data_zcurve_full_time_preferred() {
+    ingest_and_flush_nyc_data_zcurve_with_sort_option(197949, 1);
+}
+
+void ingest_and_flush_nyc_data_zcurve_full_space_preferred() {
+    ingest_and_flush_nyc_data_zcurve_with_sort_option(197949, 2);
+}
+
+void ingest_and_flush_nyc_data_zcurve_full_no_preferred() {
+    ingest_and_flush_nyc_data_zcurve_with_sort_option(197949, 3);
+}
+
+
 void ingest_and_flush_porto_data_zcurve_for_segment_test() {
     // read all points data util to the end of the file because the number of blocks for different segment numbers is different
     ingest_and_flush_porto_data_zcurve_segment_num(INT32_MAX);
@@ -2568,8 +2670,27 @@ int main(void) {
     //ingest_and_flush_porto_data_time_oid_full();
     //exp_spatio_temporal_query_porto_index_scan_low_selectivity_add_host_io_opt();
     //exp_id_temporal_query_porto();
-    exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt();
+    //exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt();
 
+
+    /** spatio temporal queries*/
+
+    // porto
+    // mbr shape: time width: 109.069629, lon width: 13305.488497, lat width: 32134.620789
+    //ingest_and_flush_porto_data_zcurve_full_time_preferred();
+    // mbr shape: time width: 875283.017787, lon width: 286.099364, lat width: 241.088301
+    //ingest_and_flush_porto_data_zcurve_full_space_preferred();
+    // mbr shape: time width: 4342.292122, lon width: 2133.759907, lat width: 3072.599516
+    //ingest_and_flush_porto_data_zcurve_full_no_preferred();
+    //exp_spatio_temporal_query_porto_index_scan_low_selectivity_add_host_io_opt();
+
+    // nyc
+    // mbr shape: mbr shape: time width: 45.996191, lon width: 10268.699143, lat width: 16491.417458
+    //ingest_and_flush_nyc_data_zcurve_full_time_preferred();
+    // mbr shape: mbr shape: time width: 372372.185230, lon width: 126.144194, lat width: 94.046502
+    //ingest_and_flush_nyc_data_zcurve_full_space_preferred();
+    // mbr shape: mbr shape: time width: 2613.793830, lon width: 1282.448532, lat width: 1792.531609
+    ingest_and_flush_nyc_data_zcurve_full_no_preferred();
 
     printf("%d\n", calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM));
 

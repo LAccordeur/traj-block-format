@@ -403,6 +403,88 @@ void ingest_data_via_zcurve_partition(struct simple_query_engine *engine, FILE *
 
 }
 
+
+/**
+ *
+ * @param engine
+ * @param fp
+ * @param block_num
+ * @param sort_option   option 1 == time preferred; option 2 == space preferred; option 3 == no specific preference
+ */
+void ingest_data_via_zcurve_partition_with_sort_option(struct simple_query_engine *engine, FILE *fp, int block_num, int sort_option) {
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+    // trajectory block info
+    int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM);
+
+    int buffer_size = 1024 * 8; // the number of block
+    int i;
+    for (i = 0; i < block_num; i+= buffer_size) {
+
+        int used_buffer_size = block_num - i < buffer_size ? block_num - i : buffer_size;
+        int total_points_num = points_num * used_buffer_size;
+        printf("total point num: %d\n", total_points_num);
+
+        struct traj_point **points_buffer = allocate_points_memory(total_points_num);
+        int read_line_num = read_points_from_csv(fp, points_buffer, i * points_num, total_points_num);
+        printf("read line num: %d\n", read_line_num);
+        if (read_line_num == 0) {
+            break;
+        }
+
+        if (sort_option == 1) {
+            sort_traj_points_zcurve_with_option(points_buffer, total_points_num, 1);
+        } else if (sort_option == 2) {
+            sort_traj_points_zcurve_with_option(points_buffer, total_points_num, 2);
+        } else {
+            sort_traj_points_zcurve_with_option(points_buffer, total_points_num, 3);
+        }
+        //sort_traj_points_zcurve(points_buffer, total_points_num);
+
+        int point_count = 0;
+        for (int j = 0; j < used_buffer_size; j++) {
+            struct traj_point **points = points_buffer + j * points_num;
+            point_count += points_num;
+            /*if (point_count > read_line_num) {
+                break;
+            }*/ // for segment num evaluation
+
+            // convert and put this data to traj storage
+            void *data = malloc(TRAJ_BLOCK_SIZE);
+            do_self_contained_traj_block(points, points_num, data, TRAJ_BLOCK_SIZE);
+            struct address_pair data_addresses = append_traj_block_to_storage(data_storage, data);
+
+            // update index
+            struct index_entry *entry = malloc(sizeof(struct index_entry));
+            init_index_entry(entry);
+            fill_index_entry(entry, points, points_num, data_addresses.physical_ptr, data_addresses.logical_adr);
+            //printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
+
+            append_index_entry_to_storage(index_storage, entry);
+
+            // update seg_meta store
+            struct seg_meta_section_entry *seg_entry = (struct seg_meta_section_entry *)malloc(sizeof(struct seg_meta_section_entry));
+            struct traj_block_header header;
+            parse_traj_block_for_header(data, &header);
+            int meta_section_size = get_seg_meta_section_size(data);
+            void* meta_section = malloc(meta_section_size);
+            extract_seg_meta_section(data, meta_section);
+            seg_entry->seg_meta_count = header.seg_count;
+            seg_entry->seg_meta_section = meta_section;
+            seg_entry->block_logical_adr = data_addresses.logical_adr;
+            append_to_seg_meta_entry_storage(meta_storage, seg_entry);
+        }
+
+        free_points_memory(points_buffer, total_points_num);
+    }
+
+
+    debug_print("[ingest_data_via_zcurve_partition] num of ingesting data points (not accurate): %d\n", points_num * (i - 1));
+
+}
+
+
 void ingest_nyc_data_via_zcurve_partition(struct simple_query_engine *engine, FILE *fp, int block_num) {
     struct traj_storage *data_storage = &engine->data_storage;
     struct index_entry_storage *index_storage = &engine->index_storage;
@@ -458,6 +540,71 @@ void ingest_nyc_data_via_zcurve_partition(struct simple_query_engine *engine, FI
     debug_print("[ingest_nyc_data_via_zcurve_partition] num of ingesting data points (not accurate): %d\n", points_num * (i - 1));
 
 }
+
+
+void ingest_nyc_data_via_zcurve_partition_with_sort_option(struct simple_query_engine *engine, FILE *fp, int block_num, int sort_option) {
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+    // trajectory block info
+    int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM);
+
+    int buffer_size = 1024 * 8; // the number of block
+    int i;
+    for (i = 0; i < block_num; i+= buffer_size) {
+
+        int used_buffer_size = block_num - i < buffer_size ? block_num - i : buffer_size;
+        int total_points_num = points_num * used_buffer_size;
+
+        struct traj_point **points_buffer = allocate_points_memory(total_points_num);
+        int read_line_num = read_points_from_csv_nyc(fp, points_buffer, i * points_num, total_points_num);
+        if (read_line_num == 0) {
+            break;
+        }
+        //sort_traj_points_zcurve(points_buffer, total_points_num);
+        if (sort_option == 1) {
+            sort_traj_points_zcurve_with_option(points_buffer, total_points_num, 1);
+        } else if (sort_option == 2) {
+            sort_traj_points_zcurve_with_option(points_buffer, total_points_num, 2);
+        } else {
+            sort_traj_points_zcurve_with_option(points_buffer, total_points_num, 3);
+        }
+
+        for (int j = 0; j < used_buffer_size; j++) {
+            struct traj_point **points = points_buffer + j * points_num;
+
+            // convert and put this data to traj storage
+            void *data = malloc(TRAJ_BLOCK_SIZE);
+            do_self_contained_traj_block(points, points_num, data, TRAJ_BLOCK_SIZE);
+            struct address_pair data_addresses = append_traj_block_to_storage(data_storage, data);
+
+            // update index
+            struct index_entry *entry = malloc(sizeof(struct index_entry));
+            init_index_entry(entry);
+            fill_index_entry(entry, points, points_num, data_addresses.physical_ptr, data_addresses.logical_adr);
+            append_index_entry_to_storage(index_storage, entry);
+
+            // update seg_meta store
+            struct seg_meta_section_entry *seg_entry = (struct seg_meta_section_entry *)malloc(sizeof(struct seg_meta_section_entry));
+            struct traj_block_header header;
+            parse_traj_block_for_header(data, &header);
+            int meta_section_size = get_seg_meta_section_size(data);
+            void* meta_section = malloc(meta_section_size);
+            extract_seg_meta_section(data, meta_section);
+            seg_entry->seg_meta_count = header.seg_count;
+            seg_entry->seg_meta_section = meta_section;
+            seg_entry->block_logical_adr = data_addresses.logical_adr;
+            append_to_seg_meta_entry_storage(meta_storage, seg_entry);
+        }
+
+        free_points_memory(points_buffer, total_points_num);
+    }
+
+
+    debug_print("[ingest_nyc_data_via_zcurve_partition] num of ingesting data points (not accurate): %d\n", points_num * (i - 1));
+
+}
+
 
 void ingest_data_via_zcurve_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num) {
     struct traj_storage *data_storage = &engine->data_storage;
@@ -528,6 +675,65 @@ void ingest_osm_data_via_zcurve_partition_with_block_index(struct simple_query_e
         struct traj_point **points_buffer = allocate_points_memory(total_points_num);
         read_points_from_csv_osm(fp, points_buffer, (i + block_index) * points_num, total_points_num);
         sort_traj_points_zcurve(points_buffer, total_points_num);
+
+        for (int j = 0; j < used_buffer_size; j++) {
+            struct traj_point **points = points_buffer + j * points_num;
+
+            // convert and put this data to traj storage
+            void *data = malloc(TRAJ_BLOCK_SIZE);
+            do_self_contained_traj_block(points, points_num, data, TRAJ_BLOCK_SIZE);
+            struct address_pair data_addresses = append_traj_block_to_storage(data_storage, data);
+
+            // update index
+            struct index_entry *entry = malloc(sizeof(struct index_entry));
+            init_index_entry(entry);
+            fill_index_entry(entry, points, points_num, data_addresses.physical_ptr, data_addresses.logical_adr + block_index);
+            append_index_entry_to_storage(index_storage, entry);
+
+            // update seg_meta store
+            struct seg_meta_section_entry *seg_entry = (struct seg_meta_section_entry *)malloc(sizeof(struct seg_meta_section_entry));
+            struct traj_block_header header;
+            parse_traj_block_for_header(data, &header);
+            int meta_section_size = get_seg_meta_section_size(data);
+            void* meta_section = malloc(meta_section_size);
+            extract_seg_meta_section(data, meta_section);
+            seg_entry->seg_meta_count = header.seg_count;
+            seg_entry->seg_meta_section = meta_section;
+            seg_entry->block_logical_adr = data_addresses.logical_adr + block_index;
+            append_to_seg_meta_entry_storage(meta_storage, seg_entry);
+        }
+
+        free_points_memory(points_buffer, total_points_num);
+    }
+
+
+    debug_print("[ingest_osm_data_via_zcurve_partition_with_block_index] num of ingesting data points: %d\n", points_num * (block_num - 1));
+
+}
+
+void ingest_osm_data_via_zcurve_partition_with_block_index_with_sort_option(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num, int sort_option) {
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+    // trajectory block info
+    int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM);
+
+    int buffer_size = 1024 * 8; // the number of block
+    for (int i = 0; i < block_num; i+= buffer_size) {
+
+        int used_buffer_size = block_num - i < buffer_size ? block_num - i : buffer_size;
+        int total_points_num = points_num * used_buffer_size;
+
+        struct traj_point **points_buffer = allocate_points_memory(total_points_num);
+        read_points_from_csv_osm(fp, points_buffer, (i + block_index) * points_num, total_points_num);
+
+        if (sort_option == 1) {
+            sort_traj_points_zcurve_with_option(points_buffer, total_points_num, 1);
+        } else if (sort_option == 2) {
+            sort_traj_points_zcurve_with_option(points_buffer, total_points_num, 2);
+        } else {
+            sort_traj_points_zcurve_with_option(points_buffer, total_points_num, 3);
+        }
 
         for (int j = 0; j < used_buffer_size; j++) {
             struct traj_point **points = points_buffer + j * points_num;
@@ -797,6 +1003,32 @@ void ingest_and_flush_data_via_zcurve_partition(struct simple_query_engine *engi
 
 }
 
+void ingest_and_flush_data_via_zcurve_partition_with_sort_option(struct simple_query_engine *engine, FILE *fp, int block_num, int sort_option) {
+    // ingest to memory
+    ingest_data_via_zcurve_partition_with_sort_option(engine, fp, block_num, sort_option);
+
+    // flush memory to disk
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    // flush data storage
+    flush_traj_storage(data_storage);
+    // serialized and flush index storage
+    struct serialized_index_storage serialized_index;
+    init_serialized_index_storage(&serialized_index);
+    serialize_index_entry_storage(index_storage, &serialized_index);
+    flush_serialized_index_storage(&serialized_index, index_storage->my_fp->filename, index_storage->my_fp->fs_mode);
+    free_serialized_index_storage(&serialized_index);
+    // serialize and flush seg meta storage
+    struct serialized_seg_meta_section_entry_storage serialized_seg_meta;
+    init_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+    serialize_seg_meta_section_entry_storage(meta_storage, &serialized_seg_meta);
+    flush_serialized_seg_meta_storage(&serialized_seg_meta, meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode);
+    free_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+
+}
+
 void ingest_and_flush_nyc_data_via_zcurve_partition(struct simple_query_engine *engine, FILE *fp, int block_num) {
     // ingest to memory
     ingest_nyc_data_via_zcurve_partition(engine, fp, block_num);
@@ -822,6 +1054,34 @@ void ingest_and_flush_nyc_data_via_zcurve_partition(struct simple_query_engine *
     free_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
 
 }
+
+
+void ingest_and_flush_nyc_data_via_zcurve_partition_with_sort_option(struct simple_query_engine *engine, FILE *fp, int block_num, int sort_option) {
+    // ingest to memory
+    ingest_nyc_data_via_zcurve_partition_with_sort_option(engine, fp, block_num, sort_option);
+
+    // flush memory to disk
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    // flush data storage
+    flush_traj_storage(data_storage);
+    // serialized and flush index storage
+    struct serialized_index_storage serialized_index;
+    init_serialized_index_storage(&serialized_index);
+    serialize_index_entry_storage(index_storage, &serialized_index);
+    flush_serialized_index_storage(&serialized_index, index_storage->my_fp->filename, index_storage->my_fp->fs_mode);
+    free_serialized_index_storage(&serialized_index);
+    // serialize and flush seg meta storage
+    struct serialized_seg_meta_section_entry_storage serialized_seg_meta;
+    init_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+    serialize_seg_meta_section_entry_storage(meta_storage, &serialized_seg_meta);
+    flush_serialized_seg_meta_storage(&serialized_seg_meta, meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode);
+    free_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+
+}
+
 
 void ingest_and_flush_data_via_zcurve_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num) {
     // ingest to memory
@@ -902,6 +1162,32 @@ void ingest_and_flush_synthetic_data_via_time_partition_with_block_index(struct 
 void ingest_and_flush_osm_data_via_zcurve_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num) {
     // ingest to memory
     ingest_osm_data_via_zcurve_partition_with_block_index(engine, fp, block_index, block_num);
+
+    // flush memory to disk
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    // flush data storage
+    flush_traj_storage(data_storage);
+
+    // serialized and flush index storage
+    struct serialized_index_storage serialized_index;
+    init_serialized_index_storage(&serialized_index);
+    serialize_index_entry_storage(index_storage, &serialized_index);
+    flush_serialized_index_storage(&serialized_index, index_storage->my_fp->filename, index_storage->my_fp->fs_mode);
+    free_serialized_index_storage(&serialized_index);
+    // serialize and flush seg meta storage
+    struct serialized_seg_meta_section_entry_storage serialized_seg_meta;
+    init_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+    serialize_seg_meta_section_entry_storage(meta_storage, &serialized_seg_meta);
+    flush_serialized_seg_meta_storage(&serialized_seg_meta, meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode);
+    free_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+}
+
+void ingest_and_flush_osm_data_via_zcurve_partition_with_block_index_with_sort_option(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num, int sort_option) {
+    // ingest to memory
+    ingest_osm_data_via_zcurve_partition_with_block_index_with_sort_option(engine, fp, block_index, block_num, sort_option);
 
     // flush memory to disk
     struct traj_storage *data_storage = &engine->data_storage;
@@ -2049,6 +2335,60 @@ static double calculate_goodness_for_spatio_temporal(struct seg_meta_section_ent
         }
     //}
     return 1.0 * result_size / total_size;
+}
+
+static int max(int a, int b) {
+    if (a > b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+static int min(int a, int b) {
+    if (a > b) {
+        return b;
+    } else {
+        return a;
+    }
+}
+
+static double calculate_overlap_for_spatio_temporal(struct index_entry_storage *storage, int block_logical_pointer, struct spatio_temporal_range_predicate *predicate) {
+    int result_size = 0;
+    int total_size = 0;
+    double ratio;
+    //for (int i = 0; i <= storage->current_index; i++) {
+    struct index_entry *entry =storage->index_entry_base[block_logical_pointer];
+    if (entry->block_logical_adr == block_logical_pointer) {
+        //printf("index: %d, real value: %d\n", i, block_logical_pointer);
+        if (predicate->lon_min <= entry->lon_max
+            && predicate->lon_max >= entry->lon_min
+            && predicate->lat_min <= entry->lat_max
+            && predicate->lat_max >= entry->lat_min
+            && predicate->time_min <= entry->time_max
+            && predicate->time_max >= entry->time_min) {
+
+            int lon_head_max = max(predicate->lon_min, entry->lon_min);
+            int lon_tail_min = min(predicate->lon_max, entry->lon_max);
+            int lon_width = lon_tail_min - lon_head_max;
+
+            int lat_head_max = max(predicate->lat_min, entry->lat_min);
+            int lat_tail_min = min(predicate->lat_max, entry->lat_max);
+            int lat_width = lat_tail_min - lat_head_max;
+
+            int time_head_max = max(predicate->time_min, entry->time_min);
+            int time_tail_min = min(predicate->time_max, entry->time_max);
+            int time_width = time_tail_min - time_head_max;
+
+            int entry_mbr_spatial_area = (entry->lon_max - entry->lon_min) * (entry->lat_max - entry->lat_min);
+            ratio = (1.0 * lon_width * lat_width / entry_mbr_spatial_area) * (time_width / (entry->time_max - entry->time_min));
+
+        }
+    } else {
+        printf("please use the iteration way\n");
+    }
+    //}
+    return ratio;
 }
 
 static double calculate_goodness_for_id_temporal(struct seg_meta_section_entry_storage *storage, int block_logical_pointer, struct id_temporal_predicate *predicate) {
@@ -4672,7 +5012,7 @@ int spatio_temporal_query_with_adaptive_pushdown_batch(struct simple_query_engin
     bool flag_for_pushdown[block_logical_addr_count];
     int pushdown_block_num = 0;
     for (int i = 0; i < block_logical_addr_count; i++) {
-        if (calculate_goodness_for_spatio_temporal(meta_storage, block_logical_addr_vec[i], predicate) < 0.3) {
+        if (calculate_overlap_for_spatio_temporal(index_storage, block_logical_addr_vec[i], predicate) < 0.3) {
             flag_for_pushdown[i] = true;
             pushdown_block_num++;
         } else {
