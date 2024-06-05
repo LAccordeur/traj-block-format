@@ -55,8 +55,8 @@ static int cmp_zcurve_spatial(const void *a, const void *b) {
 static int cmp_zcurve_time_preferred(const void *a, const void *b) {
     struct traj_point *point_a = *(struct traj_point **)a;
     struct traj_point *point_b = *(struct traj_point **)b;
-    int time_partition_a = point_a->timestamp_sec; // partition length is 1 second
-    int time_partition_b = point_b->timestamp_sec;
+    int time_partition_a = point_a->timestamp_sec / (60 * 5); // partition length is 5 min
+    int time_partition_b = point_b->timestamp_sec / (60 * 5);
     long zcurve_a = generate_zcurve_value_spatial(point_a->normalized_longitude, point_a->normalized_latitude);
     long zcurve_b = generate_zcurve_value_spatial(point_b->normalized_longitude, point_b->normalized_latitude);
     if (time_partition_a > time_partition_b) {
@@ -73,8 +73,8 @@ static int cmp_zcurve_space_preferred(const void *a, const void *b) {
     struct traj_point *point_a = *(struct traj_point **)a;
     struct traj_point *point_b = *(struct traj_point **)b;
 
-    long space_partition_a = generate_zcurve_value_spatial(point_a->normalized_longitude, point_a->normalized_latitude);
-    long space_partition_b = generate_zcurve_value_spatial(point_b->normalized_longitude, point_b->normalized_latitude);
+    long space_partition_a = generate_zcurve_value_spatial(point_a->normalized_longitude, point_a->normalized_latitude) >> 11;
+    long space_partition_b = generate_zcurve_value_spatial(point_b->normalized_longitude, point_b->normalized_latitude) >> 11;
 
     if (space_partition_a > space_partition_b) {
         return 1;
@@ -90,8 +90,8 @@ static int cmp_zcurve_no_preferred(const void *a, const void *b) {
     struct traj_point *point_a = *(struct traj_point **)a;
     struct traj_point *point_b = *(struct traj_point **)b;
 
-    long zcurve_a = generate_zcurve_value(point_a->normalized_longitude, point_a->normalized_latitude, point_a->timestamp_sec);
-    long zcurve_b = generate_zcurve_value(point_b->normalized_longitude, point_b->normalized_latitude, point_b->timestamp_sec);
+    long zcurve_a = generate_zcurve_value(point_a->normalized_longitude, point_a->normalized_latitude, point_a->timestamp_sec / 5);
+    long zcurve_b = generate_zcurve_value(point_b->normalized_longitude, point_b->normalized_latitude, point_b->timestamp_sec / 5);
 
     if (zcurve_a > zcurve_b) {
         return 1;

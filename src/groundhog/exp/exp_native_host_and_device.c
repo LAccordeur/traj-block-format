@@ -154,6 +154,33 @@ static void ingest_and_flush_porto_data_zcurve_segment_num(int data_block_num) {
 
 }
 
+static void ingest_and_flush_porto_data_zcurve_segment_num_with_sort_option(int data_block_num, int sort_option) {
+    init_and_mk_fs_for_traj(false);
+
+    //int data_block_num = 1024;
+
+    FILE *data_fp = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2_24million.csv", "r");
+    // ingest data
+    struct simple_query_engine query_engine;
+    struct my_file data_file = {NULL, DATA_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file index_file = {NULL, INDEX_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file meta_file = {NULL, SEG_META_FILENAME, "w", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+    ingest_and_flush_data_via_zcurve_partition_with_sort_option(&query_engine, data_fp, data_block_num, sort_option);
+
+    // print temporal meta information for each block
+    struct index_entry_storage *index_storage = &query_engine.index_storage;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
+    }
+
+    printf("block num: %d\n", index_storage->current_index);
+    // save filesystem meta
+    spdk_flush_static_fs_meta_for_traj();
+
+}
+
 static void ingest_and_flush_porto_data_10x_zcurve(int data_block_num) {
     init_and_mk_fs_for_traj(false);
 
@@ -554,6 +581,29 @@ static int exp_native_spatio_temporal_host_batch_v1(struct spatio_temporal_range
 }
 
 
+static int exp_native_spatio_temporal_count_block_num_batch_v1(struct spatio_temporal_range_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+
+    clock_t start, end;
+    start = clock();
+    int engine_result = spatio_temporal_query_count_block_num_batch(rebuild_engine, predicate, enable_host_index);
+    end = clock();
+
+
+    return engine_result;
+}
+
+static double exp_native_spatio_temporal_selectivity_batch_v1(struct spatio_temporal_range_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+
+    clock_t start, end;
+    start = clock();
+    double engine_result = spatio_temporal_query_selectivity_batch(rebuild_engine, predicate, enable_host_index);
+    end = clock();
+
+
+    return engine_result;
+}
+
+
 static int exp_native_id_temporal_host_io_opt_batch_v1(struct id_temporal_predicate *predicate, struct simple_query_engine *rebuild_engine) {
 
     clock_t start, end;
@@ -800,7 +850,7 @@ static void exp_native_spatio_temporal_adaptive_pushdown_batch(struct spatio_tem
     free_query_engine(&rebuild_engine);
 }
 
-static void exp_native_spatio_temporal_adaptive_pushdown_batch_v1(struct spatio_temporal_range_predicate *predicate, struct simple_query_engine *rebuild_engine) {
+static int exp_native_spatio_temporal_adaptive_pushdown_batch_v1(struct spatio_temporal_range_predicate *predicate, struct simple_query_engine *rebuild_engine) {
 
 
     clock_t start, end;
@@ -809,6 +859,7 @@ static void exp_native_spatio_temporal_adaptive_pushdown_batch_v1(struct spatio_
     end = clock();
     printf("[isp adaptive cpu] query time (total, including all): %f\n", (double )(end - start));
     printf("[isp adaptive cpu] engine result: %d\n", engine_result);
+    return engine_result;
 
 }
 
@@ -1617,6 +1668,13 @@ void ingest_and_flush_porto_data_zcurve_for_segment_test() {
 
 }
 
+
+void ingest_and_flush_porto_data_zcurve_for_segment_test_with_sort_option(int sort_option) {
+    // read all points data util to the end of the file because the number of blocks for different segment numbers is different
+    ingest_and_flush_porto_data_zcurve_segment_num_with_sort_option(INT32_MAX, sort_option);
+
+}
+
 void ingest_and_flush_porto_data_zcurve_10x_full() {
     //ingest_and_flush_porto_data_zcurve(277949);
     ingest_and_flush_porto_data_10x_zcurve(1979490);
@@ -1858,6 +1916,396 @@ void exp_spatio_temporal_query_porto_index_scan_low_selectivity_add_host_io_opt(
 }
 
 
+void exp_spatio_temporal_query_porto_index_scan_with_query_file(FILE *query_fp) {
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+
+    //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_005.query", "r");
+    // read queries
+    int query_num = 100;
+    struct spatio_temporal_range_predicate **predicates = allocate_spatio_temporal_predicate_mem(query_num);
+    read_spatio_temporal_queries_from_csv(query_fp, predicates, query_num);
+
+    long host_ioopt_time[query_num];
+    long host_ioopt_time_pure[query_num];
+    long host_time[query_num];
+    long host_time_pure[query_num];
+    long device_time_naive[query_num];
+    long device_time_naive_pure[query_num];
+    long device_time_mbr_pruning[query_num];
+    long device_time_mbr_pruning_pure[query_num];
+    long device_time[query_num];
+    long device_time_pure[query_num];
+
+    long block_num[query_num];
+    double selectivity_arr[query_num];
+    double pruning_ratio_arr[query_num];
+    long result_count_arr[query_num];
+
+    int running_time;
+    double selectivity;
+
+    clock_t start, end, query_start, query_end;
+    start = clock();
+    for (int i = 0; i < query_num; i++) {
+
+            printf("i: %d\n", i);
+            printf("time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n",
+                   predicates[i]->time_min,
+                   predicates[i]->time_max, predicates[i]->lon_min, predicates[i]->lon_max, predicates[i]->lat_min,
+                   predicates[i]->lat_max);
+            predicates[i]->statistics.total_segment_num = 0;
+            predicates[i]->statistics.checked_segment_num = 0;
+            predicates[i]->statistics.result_count = 0;
+
+            query_start = clock();
+            running_time = exp_native_spatio_temporal_host_io_opt_batch_v1(predicates[i], &rebuild_engine);
+            query_end = clock();
+            host_ioopt_time[i] = query_end - query_start;
+            host_ioopt_time_pure[i] = running_time;
+
+            printf("\n");
+
+            query_start = clock();
+            running_time = exp_native_spatio_temporal_host_batch_v1(predicates[i], &rebuild_engine);
+            query_end = clock();
+            host_time[i] = query_end - query_start;
+            host_time_pure[i] = running_time;
+
+            printf("\n");
+
+            query_start = clock();
+            running_time = exp_native_spatio_temporal_armcpu_full_pushdown_batch_naive_v1(predicates[i], &rebuild_engine);
+            query_end = clock();
+            device_time_naive[i] = query_end - query_start;
+            device_time_naive_pure[i] = running_time;
+
+            printf("\n");
+
+            query_start = clock();
+            running_time = exp_native_spatio_temporal_armcpu_full_pushdown_batch_v1(predicates[i], &rebuild_engine);
+            query_end = clock();
+            device_time_mbr_pruning[i] = query_end - query_start;
+            device_time_mbr_pruning_pure[i] = running_time;
+            printf("\n");
+
+            query_start = clock();
+            running_time = exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
+            query_end = clock();
+            device_time[i] = query_end - query_start;
+            device_time_pure[i] = running_time;
+
+            printf("\n");
+
+
+            running_time = exp_native_spatio_temporal_count_block_num_batch_v1(predicates[i], &rebuild_engine);
+            block_num[i] = running_time;
+
+
+            selectivity = exp_native_spatio_temporal_selectivity_batch_v1(predicates[i], &rebuild_engine);
+            selectivity_arr[i] = selectivity;
+
+            if (predicates[i]->statistics.total_segment_num != 0) {
+                pruning_ratio_arr[i] = 1.0 * predicates[i]->statistics.checked_segment_num /
+                                       predicates[i]->statistics.total_segment_num;
+                printf("pruning ratio: %f\n", pruning_ratio_arr[i]);
+            }
+
+            result_count_arr[i] = predicates[i]->statistics.result_count;
+            //exp_native_spatio_temporal_host_device_parallel_batch_v1(predicates[i], &rebuild_engine);
+
+            //printf("selectivity: %f\n", (1.0 * result_count / 30000000.0));
+            printf("\n\n\n");
+
+    }
+    end = clock();
+    printf("total time: %f\n",(double)(end-start));
+
+    printf("\n\n[host io opt] average time: %f, average pure time: %f\n", average_values(host_ioopt_time, query_num), average_values(host_ioopt_time_pure, query_num));
+    printf("[host] average time: %f, average pure time: %f\n", average_values(host_time, query_num), average_values(host_time_pure, query_num));
+    printf("[device naive] average time: %f, average pure time: %f\n", average_values(device_time_naive, query_num),
+           average_values(device_time_naive_pure, query_num));
+    printf("[device add mbr pruning] average time: %f, average pure time: %f\n", average_values(device_time_mbr_pruning, query_num),
+           average_values(device_time_mbr_pruning_pure, query_num));
+    printf("[device] average time: %f, average pure time: %f\n", average_values(device_time, query_num), average_values(device_time_pure, query_num));
+    printf("[average block num] %f\n", average_values(block_num, query_num));
+    printf("[average selectivity] %f\n", average_values_double(selectivity_arr, query_num));
+    printf("[pruning ratio (check / total)] %f\n", average_values_double(pruning_ratio_arr, query_num));
+    printf("[average result count] %f\n", average_values(result_count_arr, query_num));
+
+    free_spatio_temporal_predicate_mem(predicates, query_num);
+    free_query_engine(&rebuild_engine);
+}
+
+
+void exp_spatio_temporal_query_nyc_index_scan_with_query_file(FILE *query_fp) {
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+
+    //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_005.query", "r");
+    // read queries
+    int query_num = 100;
+    struct spatio_temporal_range_predicate **predicates = allocate_spatio_temporal_predicate_mem(query_num);
+    read_spatio_temporal_queries_from_csv_nyc(query_fp, predicates, query_num);
+
+    long host_ioopt_time[query_num];
+    long host_ioopt_time_pure[query_num];
+    long host_time[query_num];
+    long host_time_pure[query_num];
+    long device_time_naive[query_num];
+    long device_time_naive_pure[query_num];
+    long device_time_mbr_pruning[query_num];
+    long device_time_mbr_pruning_pure[query_num];
+    long device_time[query_num];
+    long device_time_pure[query_num];
+
+    long block_num[query_num];
+    double selectivity_arr[query_num];
+    double pruning_ratio_arr[query_num];
+    long result_count_arr[query_num];
+
+    int running_time;
+    double selectivity;
+
+    clock_t start, end, query_start, query_end;
+    start = clock();
+    for (int i = 0; i < query_num; i++) {
+
+        printf("i: %d\n", i);
+        printf("time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n",
+               predicates[i]->time_min,
+               predicates[i]->time_max, predicates[i]->lon_min, predicates[i]->lon_max, predicates[i]->lat_min,
+               predicates[i]->lat_max);
+        predicates[i]->statistics.total_segment_num = 0;
+        predicates[i]->statistics.checked_segment_num = 0;
+        predicates[i]->statistics.result_count = 0;
+
+        query_start = clock();
+        running_time = exp_native_spatio_temporal_host_io_opt_batch_v1(predicates[i], &rebuild_engine);
+        query_end = clock();
+        host_ioopt_time[i] = query_end - query_start;
+        host_ioopt_time_pure[i] = running_time;
+
+        printf("\n");
+
+        query_start = clock();
+        running_time = exp_native_spatio_temporal_host_batch_v1(predicates[i], &rebuild_engine);
+        query_end = clock();
+        host_time[i] = query_end - query_start;
+        host_time_pure[i] = running_time;
+
+        printf("\n");
+
+        query_start = clock();
+        running_time = exp_native_spatio_temporal_armcpu_full_pushdown_batch_naive_v1(predicates[i], &rebuild_engine);
+        query_end = clock();
+        device_time_naive[i] = query_end - query_start;
+        device_time_naive_pure[i] = running_time;
+
+        printf("\n");
+
+        query_start = clock();
+        running_time = exp_native_spatio_temporal_armcpu_full_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        query_end = clock();
+        device_time_mbr_pruning[i] = query_end - query_start;
+        device_time_mbr_pruning_pure[i] = running_time;
+        printf("\n");
+
+        /*query_start = clock();
+        running_time = exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        query_end = clock();
+        device_time[i] = query_end - query_start;
+        device_time_pure[i] = running_time;*/
+
+        printf("\n");
+
+
+        running_time = exp_native_spatio_temporal_count_block_num_batch_v1(predicates[i], &rebuild_engine);
+        block_num[i] = running_time;
+
+
+        selectivity = exp_native_spatio_temporal_selectivity_batch_v1(predicates[i], &rebuild_engine);
+        selectivity_arr[i] = selectivity;
+
+        if (predicates[i]->statistics.total_segment_num != 0) {
+            pruning_ratio_arr[i] = 1.0 * predicates[i]->statistics.checked_segment_num /
+                                   predicates[i]->statistics.total_segment_num;
+            printf("pruning ratio: %f\n", pruning_ratio_arr[i]);
+        }
+
+        result_count_arr[i] = predicates[i]->statistics.result_count;
+
+        printf("\n\n\n");
+
+    }
+    end = clock();
+    printf("total time: %f\n",(double)(end-start));
+
+    printf("\n\n[host io opt] average time: %f, average pure time: %f\n", average_values(host_ioopt_time, query_num), average_values(host_ioopt_time_pure, query_num));
+    printf("[host] average time: %f, average pure time: %f\n", average_values(host_time, query_num), average_values(host_time_pure, query_num));
+    printf("[device naive] average time: %f, average pure time: %f\n", average_values(device_time_naive, query_num),
+           average_values(device_time_naive_pure, query_num));
+    printf("[device add mbr pruning] average time: %f, average pure time: %f\n", average_values(device_time_mbr_pruning, query_num),
+           average_values(device_time_mbr_pruning_pure, query_num));
+    printf("[device] average time: %f, average pure time: %f\n", average_values(device_time, query_num), average_values(device_time_pure, query_num));
+    printf("[average block num] %f\n", average_values(block_num, query_num));
+    printf("[average selectivity] %f\n", average_values_double(selectivity_arr, query_num));
+    printf("[pruning ratio (check / total)] %f\n", average_values_double(pruning_ratio_arr, query_num));
+    printf("[average result count] %f\n", average_values(result_count_arr, query_num));
+
+    free_spatio_temporal_predicate_mem(predicates, query_num);
+    free_query_engine(&rebuild_engine);
+}
+
+
+
+void exp_spatio_temporal_query_osm_index_scan_with_query_file(FILE *query_fp) {
+    init_and_mk_fs_for_traj(true);
+    print_spdk_static_fs_meta_for_traj();
+
+    struct simple_query_engine rebuild_engine;
+    struct my_file data_file_rebuild = {NULL, DATA_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file index_file_rebuild = {NULL, INDEX_FILENAME, "r", SPDK_FS_MODE};
+    struct my_file meta_file_rebuild = {NULL, SEG_META_FILENAME, "r", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&rebuild_engine, &data_file_rebuild, &index_file_rebuild, &meta_file_rebuild);
+
+
+    rebuild_query_engine_from_file(&rebuild_engine);
+
+    //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_005.query", "r");
+    // read queries
+    int query_num = 100;
+    struct spatio_temporal_range_predicate **predicates = allocate_spatio_temporal_predicate_mem(query_num);
+    read_spatio_temporal_queries_from_csv(query_fp, predicates, query_num);
+
+    long host_ioopt_time[query_num];
+    long host_ioopt_time_pure[query_num];
+    long host_time[query_num];
+    long host_time_pure[query_num];
+    long device_time_naive[query_num];
+    long device_time_naive_pure[query_num];
+    long device_time_mbr_pruning[query_num];
+    long device_time_mbr_pruning_pure[query_num];
+    long device_time[query_num];
+    long device_time_pure[query_num];
+
+    long block_num[query_num];
+    double selectivity_arr[query_num];
+    double pruning_ratio_arr[query_num];
+    long result_count_arr[query_num];
+
+    int running_time;
+    double selectivity;
+
+    clock_t start, end, query_start, query_end;
+    start = clock();
+    for (int i = 0; i < query_num; i++) {
+
+        printf("i: %d\n", i);
+        printf("time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n",
+               predicates[i]->time_min,
+               predicates[i]->time_max, predicates[i]->lon_min, predicates[i]->lon_max, predicates[i]->lat_min,
+               predicates[i]->lat_max);
+        predicates[i]->statistics.total_segment_num = 0;
+        predicates[i]->statistics.checked_segment_num = 0;
+        predicates[i]->statistics.result_count = 0;
+
+        query_start = clock();
+        running_time = exp_native_spatio_temporal_host_io_opt_batch_v1(predicates[i], &rebuild_engine);
+        query_end = clock();
+        host_ioopt_time[i] = query_end - query_start;
+        host_ioopt_time_pure[i] = running_time;
+
+        printf("\n");
+
+        query_start = clock();
+        running_time = exp_native_spatio_temporal_host_batch_v1(predicates[i], &rebuild_engine);
+        query_end = clock();
+        host_time[i] = query_end - query_start;
+        host_time_pure[i] = running_time;
+
+        printf("\n");
+
+        query_start = clock();
+        running_time = exp_native_spatio_temporal_armcpu_full_pushdown_batch_naive_v1(predicates[i], &rebuild_engine);
+        query_end = clock();
+        device_time_naive[i] = query_end - query_start;
+        device_time_naive_pure[i] = running_time;
+
+        printf("\n");
+
+        query_start = clock();
+        running_time = exp_native_spatio_temporal_armcpu_full_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        query_end = clock();
+        device_time_mbr_pruning[i] = query_end - query_start;
+        device_time_mbr_pruning_pure[i] = running_time;
+        printf("\n");
+
+        query_start = clock();
+        running_time = exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
+        query_end = clock();
+        device_time[i] = query_end - query_start;
+        device_time_pure[i] = running_time;
+
+        printf("\n");
+
+
+        running_time = exp_native_spatio_temporal_count_block_num_batch_v1(predicates[i], &rebuild_engine);
+        block_num[i] = running_time;
+
+
+        selectivity = exp_native_spatio_temporal_selectivity_batch_v1(predicates[i], &rebuild_engine);
+        selectivity_arr[i] = selectivity;
+
+        if (predicates[i]->statistics.total_segment_num != 0) {
+            pruning_ratio_arr[i] = 1.0 * predicates[i]->statistics.checked_segment_num /
+                                   predicates[i]->statistics.total_segment_num;
+            printf("pruning ratio: %f\n", pruning_ratio_arr[i]);
+        }
+
+        result_count_arr[i] = predicates[i]->statistics.result_count;
+
+        printf("\n\n\n");
+
+    }
+    end = clock();
+    printf("total time: %f\n",(double)(end-start));
+
+    printf("\n\n[host io opt] average time: %f, average pure time: %f\n", average_values(host_ioopt_time, query_num), average_values(host_ioopt_time_pure, query_num));
+    printf("[host] average time: %f, average pure time: %f\n", average_values(host_time, query_num), average_values(host_time_pure, query_num));
+    printf("[device naive] average time: %f, average pure time: %f\n", average_values(device_time_naive, query_num),
+           average_values(device_time_naive_pure, query_num));
+    printf("[device add mbr pruning] average time: %f, average pure time: %f\n", average_values(device_time_mbr_pruning, query_num),
+           average_values(device_time_mbr_pruning_pure, query_num));
+    printf("[device] average time: %f, average pure time: %f\n", average_values(device_time, query_num), average_values(device_time_pure, query_num));
+    printf("[average block num] %f\n", average_values(block_num, query_num));
+    printf("[average selectivity] %f\n", average_values_double(selectivity_arr, query_num));
+    printf("[pruning ratio (check / total)] %f\n", average_values_double(pruning_ratio_arr, query_num));
+    printf("[average result count] %f\n", average_values(result_count_arr, query_num));
+
+    free_spatio_temporal_predicate_mem(predicates, query_num);
+    free_query_engine(&rebuild_engine);
+}
+
+
 void exp_spatio_temporal_query_porto_index_scan_segment_num() {
     init_and_mk_fs_for_traj(true);
     print_spdk_static_fs_meta_for_traj();
@@ -1871,13 +2319,32 @@ void exp_spatio_temporal_query_porto_index_scan_segment_num() {
 
     rebuild_query_engine_from_file(&rebuild_engine);
 
-    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_005.query", "r");
+    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_old/porto_st_005.query", "r");
     // read queries
-    int query_num = 20;
+    int query_num = 100;
     struct spatio_temporal_range_predicate **predicates = allocate_spatio_temporal_predicate_mem(query_num);
     read_spatio_temporal_queries_from_csv(query_fp, predicates, query_num);
 
-    clock_t start, end;
+
+    long host_ioopt_time[query_num];
+    long host_ioopt_time_pure[query_num];
+    long host_time[query_num];
+    long host_time_pure[query_num];
+    long device_time_naive[query_num];
+    long device_time_naive_pure[query_num];
+    long device_time_mbr_pruning[query_num];
+    long device_time_mbr_pruning_pure[query_num];
+    long device_time[query_num];
+    long device_time_pure[query_num];
+
+    long block_num[query_num];
+    double selectivity_arr[query_num];
+    double pruning_ratio_arr[query_num];
+
+    int running_time;
+    double selectivity;
+
+    clock_t start, end, query_start, query_end;
     start = clock();
     for (int i = 0; i < query_num; i++) {
         if (i == 14 || i == 15 || i == 17) {
@@ -1886,18 +2353,61 @@ void exp_spatio_temporal_query_porto_index_scan_segment_num() {
                    predicates[i]->time_min,
                    predicates[i]->time_max, predicates[i]->lon_min, predicates[i]->lon_max, predicates[i]->lat_min,
                    predicates[i]->lat_max);
-            exp_native_spatio_temporal_host_batch_v1(predicates[i], &rebuild_engine);
+            predicates[i]->statistics.total_segment_num = 0;
+            predicates[i]->statistics.checked_segment_num = 0;
+
+            /*query_start = clock();
+            running_time = exp_native_spatio_temporal_host_io_opt_batch_v1(predicates[i], &rebuild_engine);
+            query_end = clock();
+            host_ioopt_time[i] = query_end - query_start;
+            host_ioopt_time_pure[i] = running_time;
+
             printf("\n");
 
-            //exp_native_spatio_temporal_armcpu_full_pushdown_batch_naive_v1(predicates[i], &rebuild_engine);
+            query_start = clock();
+            running_time = exp_native_spatio_temporal_host_batch_v1(predicates[i], &rebuild_engine);
+            query_end = clock();
+            host_time[i] = query_end - query_start;
+            host_time_pure[i] = running_time;
+
             printf("\n");
 
-            exp_native_spatio_temporal_armcpu_full_pushdown_batch_v1(predicates[i], &rebuild_engine);
+            query_start = clock();
+            running_time = exp_native_spatio_temporal_armcpu_full_pushdown_batch_naive_v1(predicates[i], &rebuild_engine);
+            query_end = clock();
+            device_time_naive[i] = query_end - query_start;
+            device_time_naive_pure[i] = running_time;*/
+
             printf("\n");
 
-            exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
+            query_start = clock();
+            running_time = exp_native_spatio_temporal_armcpu_full_pushdown_batch_v1(predicates[i], &rebuild_engine);
+            query_end = clock();
+            device_time_mbr_pruning[i] = query_end - query_start;
+            device_time_mbr_pruning_pure[i] = running_time;
             printf("\n");
 
+            /*query_start = clock();
+            running_time = exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
+            query_end = clock();
+            device_time[i] = query_end - query_start;
+            device_time_pure[i] = running_time;*/
+
+            printf("\n");
+
+
+            running_time = exp_native_spatio_temporal_count_block_num_batch_v1(predicates[i], &rebuild_engine);
+            block_num[i] = running_time;
+
+
+            selectivity = exp_native_spatio_temporal_selectivity_batch_v1(predicates[i], &rebuild_engine);
+            selectivity_arr[i] = selectivity;
+
+            if (predicates[i]->statistics.total_segment_num != 0) {
+                pruning_ratio_arr[i] = 1.0 * predicates[i]->statistics.checked_segment_num /
+                                       predicates[i]->statistics.total_segment_num;
+                printf("pruning ratio: %f\n", pruning_ratio_arr[i]);
+            }
             //exp_native_spatio_temporal_host_device_parallel_batch_v1(predicates[i], &rebuild_engine);
 
             //printf("selectivity: %f\n", (1.0 * result_count / 30000000.0));
@@ -1906,6 +2416,17 @@ void exp_spatio_temporal_query_porto_index_scan_segment_num() {
     }
     end = clock();
     printf("total time: %f\n",(double)(end-start));
+
+    printf("\n\n[host io opt] average time: %f, average pure time: %f\n", average_values(host_ioopt_time, query_num), average_values(host_ioopt_time_pure, query_num));
+    printf("[host] average time: %f, average pure time: %f\n", average_values(host_time, query_num), average_values(host_time_pure, query_num));
+    printf("[device naive] average time: %f, average pure time: %f\n", average_values(device_time_naive, query_num),
+           average_values(device_time_naive_pure, query_num));
+    printf("[device add mbr pruning] average time: %f, average pure time: %f\n", average_values(device_time_mbr_pruning, query_num),
+           average_values(device_time_mbr_pruning_pure, query_num));
+    printf("[device] average time: %f, average pure time: %f\n", average_values(device_time, query_num), average_values(device_time_pure, query_num));
+    printf("[average block num] %f\n", average_values(block_num, query_num));
+    printf("[average selectivity] %f\n", average_values_double(selectivity_arr, query_num));
+    printf("[pruning ratio (check / total)] %f\n", average_values_double(pruning_ratio_arr, query_num));
 
     free_spatio_temporal_predicate_mem(predicates, query_num);
     free_query_engine(&rebuild_engine);
@@ -2590,6 +3111,62 @@ void exp_spatio_temporal_knn_join_query_porto_scan() {
     free_query_engine(&rebuild_engine);
 }
 
+
+
+static void ingest_and_flush_osm_data_zcurve_large_with_sort_option(int data_block_num_each_run, int run_num, int sort_option) {
+    init_and_mk_fs_for_traj(false);
+
+    FILE *data_fp = fopen("/home/yangguo/Dataset/osm/osm_points_with_time_v1.csv", "r");
+    // ingest data
+    struct simple_query_engine query_engine;
+    struct my_file data_file = {NULL, DATA_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file index_file = {NULL, INDEX_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file meta_file = {NULL, SEG_META_FILENAME, "w", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+
+    for (int i = 0; i < run_num; i++) {
+        printf("the %d run of data ingestion\n", i);
+        init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+        ingest_and_flush_osm_data_via_zcurve_partition_with_block_index_with_sort_option(&query_engine, data_fp, i * data_block_num_each_run, data_block_num_each_run, sort_option);
+
+        // print temporal meta information for each block
+        double total_time_width = 0;
+        double total_lon_width = 0;
+        double total_lat_width = 0;
+        // print temporal meta information for each block
+        struct index_entry_storage *index_storage = &query_engine.index_storage;
+        for (int n = 0; n <= index_storage->current_index; n++) {
+            struct index_entry *entry = index_storage->index_entry_base[n];
+            printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
+            total_time_width += (entry->time_max - entry->time_min);
+            total_lon_width += (entry->lon_max - entry->lon_min);
+            total_lat_width += (entry->lat_max - entry->lat_min);
+        }
+        printf("mbr shape: time width: %f, lon width: %f, lat width: %f\n", total_time_width / index_storage->current_index, total_lon_width / index_storage->current_index,
+               total_lat_width / index_storage->current_index);
+        printf("block num: %d\n", index_storage->current_index);
+
+        free_query_engine(&query_engine);
+    }
+
+
+    print_spdk_static_fs_meta_for_traj();
+    // save filesystem meta
+    spdk_flush_static_fs_meta_for_traj();
+}
+
+void ingest_and_flush_osm_data_zcurve_time_preferred() {
+    ingest_and_flush_osm_data_zcurve_large_with_sort_option(197949, 1, 1);
+}
+
+void ingest_and_flush_osm_data_zcurve_space_preferred() {
+    ingest_and_flush_osm_data_zcurve_large_with_sort_option(197949, 1, 2);
+}
+
+void ingest_and_flush_osm_data_zcurve_no_preferred() {
+    ingest_and_flush_osm_data_zcurve_large_with_sort_option(197949, 1, 3);
+}
+
 int main(void) {
     // block pointer: [32767], time min: 7372575, time max: 7372799
     // block pointer: [65535], time min: 14745375, time max: 14745599
@@ -2673,26 +3250,65 @@ int main(void) {
     //exp_spatio_temporal_knn_query_porto_scan_add_host_io_opt();
 
 
+
+    // segment num
+    int time_preferred = 1;
+    int space_preferred = 2;
+    int no_preferred = 3;
+    //ingest_and_flush_porto_data_zcurve_for_segment_test_with_sort_option(time_preferred);
+    //ingest_and_flush_porto_data_zcurve_for_segment_test_with_sort_option(space_preferred);
+    //ingest_and_flush_porto_data_zcurve_for_segment_test_with_sort_option(no_preferred);
+    //exp_spatio_temporal_query_porto_index_scan_segment_num();
+
+
+
     /** spatio temporal queries*/
 
     // porto
-    // mbr shape: time width: 109.069629, lon width: 13305.488497, lat width: 32134.620789
-    //ingest_and_flush_porto_data_zcurve_full_time_preferred();
-    // mbr shape: time width: 875283.017787, lon width: 286.099364, lat width: 241.088301
+    // mbr shape: time width: 401.212465, lon width: 6805.811304, lat width: 13957.018656
+    ingest_and_flush_porto_data_zcurve_full_time_preferred();
+    // mbr shape: time width: 568347.955802, lon width: 305.501586, lat width: 251.326353
     //ingest_and_flush_porto_data_zcurve_full_space_preferred();
-    // mbr shape: time width: 4342.292122, lon width: 2133.759907, lat width: 3072.599516
+    // mbr shape: time width: 11190.552120, lon width: 1333.002182, lat width: 1824.709292
     //ingest_and_flush_porto_data_zcurve_full_no_preferred();
-    //exp_spatio_temporal_query_porto_index_scan_low_selectivity_add_host_io_opt();
+
+    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_009.query", "r");
+    //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_time_50min.query", "r");
+    //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_general_05_24h.query", "r");
+    //exp_spatio_temporal_query_porto_index_scan_with_query_file(query_fp);
 
     // nyc
-    // mbr shape: mbr shape: time width: 45.996191, lon width: 10268.699143, lat width: 16491.417458
+    // mbr shape: time width: 341.152373, lon width: 4911.559955, lat width: 6534.249278
     //ingest_and_flush_nyc_data_zcurve_full_time_preferred();
-    // mbr shape: mbr shape: time width: 372372.185230, lon width: 126.144194, lat width: 94.046502
+    // mbr shape: time width: 267025.311420, lon width: 144.387945, lat width: 102.164144
     //ingest_and_flush_nyc_data_zcurve_full_space_preferred();
-    // mbr shape: mbr shape: time width: 2613.793830, lon width: 1282.448532, lat width: 1792.531609
-    ingest_and_flush_nyc_data_zcurve_full_no_preferred();
+    // mbr shape: time width: 6590.068932, lon width: 730.765918, lat width: 978.363995
+    //ingest_and_flush_nyc_data_zcurve_full_no_preferred();
+
+    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_space_009.query", "r");
+    FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_time_50min.query", "r");
+    //exp_spatio_temporal_query_nyc_index_scan_with_query_file(query_fp_nyc);
+
+
+
+
+    // osm
+    // mbr shape: time width: 176.871628, lon width: 340356.459272, lat width: 346233.874164
+    //ingest_and_flush_osm_data_zcurve_time_preferred();
+    // mbr shape: time width: 455449.551372, lon width: 12243.755739, lat width: 9358.369860
+    //ingest_and_flush_osm_data_zcurve_space_preferred();
+    // mbr shape: time width: 47250.145745, lon width: 312659.782332, lat width: 444011.467370
+    //ingest_and_flush_osm_data_zcurve_no_preferred();
+
+    FILE *query_fp_osm = fopen("/home/yangguo/Codes/groundhog/query-workload/osm_st_space_001.query", "r");
+    //FILE *query_fp_osm = fopen("/home/yangguo/Codes/groundhog/query-workload/osm_st_time_50min.query", "r");
+    //exp_spatio_temporal_query_osm_index_scan_with_query_file(query_fp_osm);
+
+
+
 
     printf("%d\n", calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM));
+
 
 
 

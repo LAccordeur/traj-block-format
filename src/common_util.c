@@ -11,3 +11,11 @@ double average_values(long *array, int array_size) {
     }
     return sum / array_size;
 }
+
+double average_values_double(double *array, int array_size) {
+    double sum = 0;
+    for (int i = 0; i < array_size; i++) {
+        sum += array[i];
+    }
+    return sum / array_size;
+}

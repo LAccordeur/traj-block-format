@@ -59,7 +59,7 @@ void init_and_mk_fs_for_traj(bool is_flushed) {
 
 void spdk_flush_static_fs_meta_for_traj() {
     spdk_flush_static_fs_meta(&spdk_static_fs_layer_for_traj);
-    //cleanup_spdk_nvme_driver(&spdk_driver_desc);
+    cleanup_spdk_nvme_driver(&spdk_driver_desc);
 }
 
 void print_spdk_static_fs_meta_for_traj() {

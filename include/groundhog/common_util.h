@@ -9,4 +9,6 @@
 
 double average_values(long *array, int array_size);
 
+double average_values_double(double *array, int array_size);
+
 #endif //TRAJ_BLOCK_FORMAT_COMMON_UTIL_H

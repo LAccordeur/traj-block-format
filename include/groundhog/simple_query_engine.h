@@ -23,6 +23,15 @@ struct id_temporal_predicate {
     int time_max;
 };
 
+struct query_statistics {
+    long result_count;
+    long read_block_num;
+    double selectivity;
+    int total_segment_num;
+    int checked_segment_num;
+};
+
+
 struct spatio_temporal_range_predicate {
     int lon_min;    // normalized value, same below
     int lon_max;
@@ -30,6 +39,7 @@ struct spatio_temporal_range_predicate {
     int lat_max;
     int time_min;
     int time_max;
+    struct query_statistics statistics;
 };
 
 struct spatio_temporal_knn_predicate {
@@ -168,6 +178,10 @@ int spatio_temporal_query_with_full_pushdown_batch_naive(struct simple_query_eng
 int spatio_temporal_query_with_full_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index);
 
 int spatio_temporal_query_with_adaptive_pushdown_batch(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index);
+
+int spatio_temporal_query_count_block_num_batch(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index);
+
+double spatio_temporal_query_selectivity_batch(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index);
 
 // not used
 int spatio_temporal_query_with_full_pushdown(struct simple_query_engine *engine, struct spatio_temporal_range_predicate *predicate, bool enable_host_index);
