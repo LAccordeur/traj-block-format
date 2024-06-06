@@ -2863,6 +2863,7 @@ run_spatio_temporal_query_host_multi_addr_batch(struct spatio_temporal_range_pre
     printf("[host multi batch] pure read time: %f\n",(double)pure_read);
     printf("[host multi batch] pure computation time: %f\n",(double)pure_comp);
     printf("[host multi batch] query time (including computation): %f\n", (double)(end_all - start_all));
+    printf("[host multi batch] result count: %d\n", result_count);
 
     return pure_read + pure_comp;
 }

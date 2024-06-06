@@ -1983,6 +1983,7 @@ void exp_spatio_temporal_query_porto_index_scan_with_query_file(FILE *query_fp) 
 
             printf("\n");
 
+
             query_start = clock();
             running_time = exp_native_spatio_temporal_armcpu_full_pushdown_batch_naive_v1(predicates[i], &rebuild_engine);
             query_end = clock();
@@ -1998,6 +1999,7 @@ void exp_spatio_temporal_query_porto_index_scan_with_query_file(FILE *query_fp) 
             device_time_mbr_pruning_pure[i] = running_time;
             printf("\n");
 
+
             query_start = clock();
             running_time = exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
             query_end = clock();
@@ -2011,16 +2013,16 @@ void exp_spatio_temporal_query_porto_index_scan_with_query_file(FILE *query_fp) 
             block_num[i] = running_time;
 
 
-            selectivity = exp_native_spatio_temporal_selectivity_batch_v1(predicates[i], &rebuild_engine);
-            selectivity_arr[i] = selectivity;
+        /*selectivity = exp_native_spatio_temporal_selectivity_batch_v1(predicates[i], &rebuild_engine);
+        selectivity_arr[i] = selectivity;
 
-            if (predicates[i]->statistics.total_segment_num != 0) {
-                pruning_ratio_arr[i] = 1.0 * predicates[i]->statistics.checked_segment_num /
-                                       predicates[i]->statistics.total_segment_num;
-                printf("pruning ratio: %f\n", pruning_ratio_arr[i]);
-            }
+        if (predicates[i]->statistics.total_segment_num != 0) {
+            pruning_ratio_arr[i] = 1.0 * predicates[i]->statistics.checked_segment_num /
+                                   predicates[i]->statistics.total_segment_num;
+            printf("pruning ratio: %f\n", pruning_ratio_arr[i]);
+        }
 
-            result_count_arr[i] = predicates[i]->statistics.result_count;
+        result_count_arr[i] = predicates[i]->statistics.result_count;*/
             //exp_native_spatio_temporal_host_device_parallel_batch_v1(predicates[i], &rebuild_engine);
 
             //printf("selectivity: %f\n", (1.0 * result_count / 30000000.0));
@@ -2098,7 +2100,7 @@ void exp_spatio_temporal_query_nyc_index_scan_with_query_file(FILE *query_fp) {
         predicates[i]->statistics.checked_segment_num = 0;
         predicates[i]->statistics.result_count = 0;
 
-        query_start = clock();
+        /*query_start = clock();
         running_time = exp_native_spatio_temporal_host_io_opt_batch_v1(predicates[i], &rebuild_engine);
         query_end = clock();
         host_ioopt_time[i] = query_end - query_start;
@@ -2110,7 +2112,7 @@ void exp_spatio_temporal_query_nyc_index_scan_with_query_file(FILE *query_fp) {
         running_time = exp_native_spatio_temporal_host_batch_v1(predicates[i], &rebuild_engine);
         query_end = clock();
         host_time[i] = query_end - query_start;
-        host_time_pure[i] = running_time;
+        host_time_pure[i] = running_time;*/
 
         printf("\n");
 
@@ -3266,16 +3268,17 @@ int main(void) {
 
     // porto
     // mbr shape: time width: 401.212465, lon width: 6805.811304, lat width: 13957.018656
-    ingest_and_flush_porto_data_zcurve_full_time_preferred();
+    //ingest_and_flush_porto_data_zcurve_full_time_preferred();
     // mbr shape: time width: 568347.955802, lon width: 305.501586, lat width: 251.326353
     //ingest_and_flush_porto_data_zcurve_full_space_preferred();
     // mbr shape: time width: 11190.552120, lon width: 1333.002182, lat width: 1824.709292
     //ingest_and_flush_porto_data_zcurve_full_no_preferred();
 
-    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_009.query", "r");
-    //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_time_50min.query", "r");
+    //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_009.query", "r");
+    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_time_50min.query", "r");
     //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_general_05_24h.query", "r");
-    //exp_spatio_temporal_query_porto_index_scan_with_query_file(query_fp);
+    exp_spatio_temporal_query_porto_index_scan_with_query_file(query_fp);
+
 
     // nyc
     // mbr shape: time width: 341.152373, lon width: 4911.559955, lat width: 6534.249278
@@ -3285,7 +3288,7 @@ int main(void) {
     // mbr shape: time width: 6590.068932, lon width: 730.765918, lat width: 978.363995
     //ingest_and_flush_nyc_data_zcurve_full_no_preferred();
 
-    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_space_009.query", "r");
+    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_space_007.query", "r");
     FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_time_50min.query", "r");
     //exp_spatio_temporal_query_nyc_index_scan_with_query_file(query_fp_nyc);
 
@@ -3293,7 +3296,7 @@ int main(void) {
 
 
     // osm
-    // mbr shape: time width: 176.871628, lon width: 340356.459272, lat width: 346233.874164
+    // mbr shape: time width: 177.460267, lon width: 320978.035686, lat width: 316296.943637
     //ingest_and_flush_osm_data_zcurve_time_preferred();
     // mbr shape: time width: 455449.551372, lon width: 12243.755739, lat width: 9358.369860
     //ingest_and_flush_osm_data_zcurve_space_preferred();
