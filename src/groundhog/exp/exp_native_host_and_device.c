@@ -2003,6 +2003,9 @@ void exp_spatio_temporal_query_porto_index_scan_with_query_file(FILE *query_fp) 
     double selectivity_arr[query_num];
     double pruning_ratio_arr[query_num];
     long result_count_arr[query_num];
+    double offload_ratio_arr[query_num];
+    double offload_selectivity_arr[query_num];
+    double host_selectivity_arr[query_num];
 
     int running_time;
     double selectivity;
@@ -2076,9 +2079,12 @@ void exp_spatio_temporal_query_porto_index_scan_with_query_file(FILE *query_fp) 
     }
 
     result_count_arr[i] = predicates[i]->statistics.result_count;
+        offload_ratio_arr[i] = predicates[i]->statistics.offload_ratio;
+        offload_selectivity_arr[i] = predicates[i]->statistics.offload_selectivity;
+        host_selectivity_arr[i] = predicates[i]->statistics.host_selectivity;
 
 
-            printf("\n\n\n");
+        printf("\n\n\n");
 
     }
     end = clock();
@@ -2095,6 +2101,9 @@ void exp_spatio_temporal_query_porto_index_scan_with_query_file(FILE *query_fp) 
     printf("[average selectivity] %f\n", average_values_double(selectivity_arr, query_num));
     printf("[pruning ratio (check / total)] %f\n", average_values_double(pruning_ratio_arr, query_num));
     printf("[average result count] %f\n", average_values(result_count_arr, query_num));
+    printf("[avg offload ratio] %f\n", average_values_double(offload_ratio_arr, query_num));
+    printf("[avg offload selectivity] %f\n", average_values_double(offload_selectivity_arr, query_num));
+    printf("[avg host selectivity] %f\n", average_values_double(host_selectivity_arr, query_num));
 
     free_spatio_temporal_predicate_mem(predicates, query_num);
     free_query_engine(&rebuild_engine);
@@ -2135,7 +2144,9 @@ void exp_spatio_temporal_query_nyc_index_scan_with_query_file(FILE *query_fp) {
     double selectivity_arr[query_num];
     double pruning_ratio_arr[query_num];
     long result_count_arr[query_num];
-    //double offload_ratio_arr[query_num];
+    double offload_ratio_arr[query_num];
+    double offload_selectivity_arr[query_num];
+    double host_selectivity_arr[query_num];
 
     int running_time;
     double selectivity;
@@ -2207,8 +2218,9 @@ void exp_spatio_temporal_query_nyc_index_scan_with_query_file(FILE *query_fp) {
         }
 
         result_count_arr[i] = predicates[i]->statistics.result_count;
-        //offload_ratio_arr[i] = predicates[i]->statistics.offload_ratio;
-
+        offload_ratio_arr[i] = predicates[i]->statistics.offload_ratio;
+        offload_selectivity_arr[i] = predicates[i]->statistics.offload_selectivity;
+        host_selectivity_arr[i] = predicates[i]->statistics.host_selectivity;
         printf("\n\n\n");
 
     }
@@ -2226,7 +2238,9 @@ void exp_spatio_temporal_query_nyc_index_scan_with_query_file(FILE *query_fp) {
     printf("[average selectivity] %f\n", average_values_double(selectivity_arr, query_num));
     printf("[pruning ratio (check / total)] %f\n", average_values_double(pruning_ratio_arr, query_num));
     printf("[average result count] %f\n", average_values(result_count_arr, query_num));
-    //printf("[avg offload ratio] %f\n", average_values(offload_ratio_arr, query_num));
+    printf("[avg offload ratio] %f\n", average_values_double(offload_ratio_arr, query_num));
+    printf("[avg offload selectivity] %f\n", average_values_double(offload_selectivity_arr, query_num));
+    printf("[avg host selectivity] %f\n", average_values_double(host_selectivity_arr, query_num));
 
     free_spatio_temporal_predicate_mem(predicates, query_num);
     free_query_engine(&rebuild_engine);
@@ -3458,7 +3472,7 @@ int main(void) {
     // mbr shape: time width: 11190.552120, lon width: 1333.002182, lat width: 1824.709292
     //ingest_and_flush_porto_data_zcurve_full_no_preferred();
 
-    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_015.query", "r");
+    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_009.query", "r");
     //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_time_10min.query", "r");
     //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_general_05_24h.query", "r");
     //exp_spatio_temporal_query_porto_index_scan_with_query_file(query_fp);
@@ -3472,9 +3486,9 @@ int main(void) {
     // mbr shape: time width: 6590.068932, lon width: 730.765918, lat width: 978.363995
     //ingest_and_flush_nyc_data_zcurve_full_no_preferred();
 
-    FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_space_013.query", "r");
+    FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_space_017.query", "r");
     //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_time_50min.query", "r");
-    exp_spatio_temporal_query_nyc_index_scan_with_query_file(query_fp_nyc);
+    //exp_spatio_temporal_query_nyc_index_scan_with_query_file(query_fp_nyc);
 
 
 

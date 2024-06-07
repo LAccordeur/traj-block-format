@@ -648,6 +648,7 @@ size_t spdk_static_fs_fread_multi_addr(const void *data_ptr, size_t size, struct
     int desc_size = calculate_isp_descriptor_space(isp_desc);
     if (desc_size >= 4096) {
         printf("the descriptor size is too big\n");
+        return -1;
     }
     serialize_isp_descriptor(isp_desc, sequence.buf);
 
@@ -715,6 +716,7 @@ size_t spdk_static_fs_fread_isp(const void *data_ptr, size_t size, struct spdk_s
     int desc_size = calculate_isp_descriptor_space(isp_desc);
     if (desc_size >= 4096) {
         printf("the descriptor size is too big\n");
+        return -1;
     }
     serialize_isp_descriptor(isp_desc, sequence.buf);
 
@@ -781,6 +783,7 @@ size_t spdk_static_fs_fread_isp_fpga(const void *data_ptr, size_t size, struct s
     int desc_size = calculate_isp_descriptor_space(isp_desc);
     if (desc_size >= 4096) {
         printf("the descriptor size is too big\n");
+        return -1;
     }
     serialize_isp_descriptor(isp_desc, sequence.buf);
 
@@ -865,6 +868,7 @@ size_t spdk_static_fs_fread_multi_addr_batch(int batch_size, const void **data_p
         int desc_size = calculate_isp_descriptor_space(isp_desc_vec[i]);
         if (desc_size >= 4096) {
             printf("the descriptor size is too big\n");
+            break;
         }
         serialize_isp_descriptor(isp_desc_vec[i], sequences[i].buf);
 
@@ -944,6 +948,7 @@ size_t spdk_static_fs_fread_hybrid_comp_batch(struct spdk_static_file_desc *file
         int desc_size = calculate_isp_descriptor_space(host_isp_desc_vec[i]);
         if (desc_size >= 4096) {
             printf("the descriptor size is too big\n");
+            break;
         }
         serialize_isp_descriptor(host_isp_desc_vec[i], sequences[i].buf);
 
@@ -1024,6 +1029,7 @@ size_t spdk_static_fs_fread_isp_batch(int batch_size, const void **data_ptr_vec,
         int desc_size = calculate_isp_descriptor_space(isp_desc_vec[i]);
         if (desc_size >= 4096) {
             printf("the descriptor size is too big\n");
+            break;
         }
         serialize_isp_descriptor(isp_desc_vec[i], sequences[i].buf);
 
@@ -1107,6 +1113,7 @@ size_t spdk_static_fs_fread_isp_fpga_batch(int batch_size, const void **data_ptr
         int desc_size = calculate_isp_descriptor_space(isp_desc_vec[i]);
         if (desc_size >= 4096) {
             printf("the descriptor size is too big\n");
+            break;
         }
         serialize_isp_descriptor(isp_desc_vec[i], sequences[i].buf);
 

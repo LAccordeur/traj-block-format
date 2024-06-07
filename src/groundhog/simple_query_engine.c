@@ -2864,10 +2864,11 @@ run_spatio_temporal_query_host_multi_addr_batch(struct spatio_temporal_range_pre
     struct lba *lba_vec_ptr[batch_size];
     int batch_count = 0;
 
+    int block_num_per_batch = 252;  // cannot use 256, because it leads to over-4KB isp descriptor
     int batch_function_call_num = 0;
-    for (int i = 0; i < block_logical_addr_count; i += 256) {
+    for (int i = 0; i < block_logical_addr_count; i += block_num_per_batch) {
 
-        int block_addr_vec_size = block_logical_addr_count - i > 256 ? 256 : block_logical_addr_count - i;
+        int block_addr_vec_size = block_logical_addr_count - i > block_num_per_batch ? block_num_per_batch : block_logical_addr_count - i;
         int result_size = block_addr_vec_size * 0x1000;
 
 
@@ -2963,6 +2964,7 @@ run_spatio_temporal_query_host_multi_addr_batch(struct spatio_temporal_range_pre
     printf("[host multi batch] pure computation time: %f\n",(double)pure_comp);
     printf("[host multi batch] query time (including computation): %f\n", (double)(end_all - start_all));
     printf("[host multi batch] result count: %d\n", result_count);
+    predicate->statistics.host_selectivity = 1.0 * result_count / (block_logical_addr_count * calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM));
 
     return pure_read + pure_comp;
 }
@@ -4923,9 +4925,10 @@ run_spatio_temporal_query_device_batch(struct spatio_temporal_range_predicate *p
     struct lba *lba_vec_ptr[batch_size];
     int batch_count = 0;
 
-    for (int i = 0; i < block_logical_addr_count; i += 256) {
+    int block_num_per_batch = 252;  // when using 256, the isp descriptor size exceeds 4 KB
+    for (int i = 0; i < block_logical_addr_count; i += block_num_per_batch) {
 
-        int block_addr_vec_size = block_logical_addr_count - i > 256 ? 256 : block_logical_addr_count - i;
+        int block_addr_vec_size = block_logical_addr_count - i > block_num_per_batch ? block_num_per_batch : block_logical_addr_count - i;
         int estimated_result_size = block_addr_vec_size * 0x1000;
         if (enable_result_estimation) {
             estimated_result_size = estimate_spatio_temporal_result_size_for_blocks(meta_storage, predicate,
@@ -5020,6 +5023,7 @@ run_spatio_temporal_query_device_batch(struct spatio_temporal_range_predicate *p
     printf("[isp cpu batch] pure read time: %f\n",(double)pure_read);
     printf("[isp cpu batch] query time (including estimation): %f\n", (double)(end_all - start_all));
     printf("[isp cpu batch] result count: %d\n", result_count);
+    predicate->statistics.offload_selectivity = 1.0 * result_count / (block_logical_addr_count * calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM));
 
     return pure_read;
 }
@@ -5276,7 +5280,7 @@ int spatio_temporal_query_with_adaptive_pushdown_batch(struct simple_query_engin
     bool flag_for_pushdown[block_logical_addr_count];
     int pushdown_block_num = 0;
     for (int i = 0; i < block_logical_addr_count; i++) {
-        if (calculate_overlap_for_spatio_temporal(index_storage, block_logical_addr_vec[i], predicate) < 0.3) {
+        if (calculate_overlap_for_spatio_temporal(index_storage, block_logical_addr_vec[i], predicate) < 0.25) {
             flag_for_pushdown[i] = true;
             pushdown_block_num++;
         } else {
@@ -5304,9 +5308,12 @@ int spatio_temporal_query_with_adaptive_pushdown_batch(struct simple_query_engin
     int result_count1 = run_spatio_temporal_query_host_multi_addr_batch(predicate, data_storage, host_block_num, blocks_for_host);
     int result_count2 = run_spatio_temporal_query_device_batch(predicate, data_storage, meta_storage, pushdown_block_num, blocks_for_pushdown, enable_estimated_result_size);
     printf("[isp adaptive batch] host result num: %d, device result num: %d\n", result_count1, result_count2);
+    predicate->statistics.offload_ratio = 1.0 * pushdown_block_num / (host_block_num + pushdown_block_num);
+
     free(blocks_for_pushdown);
     free(blocks_for_host);
     free(block_logical_addr_vec);
+
     return result_count1 + result_count2;
 }
 

@@ -30,6 +30,8 @@ struct query_statistics {
     int total_segment_num;
     int checked_segment_num;
     double offload_ratio;
+    double offload_selectivity;
+    double host_selectivity;
 };
 
 
