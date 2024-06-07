@@ -29,6 +29,7 @@ struct query_statistics {
     double selectivity;
     int total_segment_num;
     int checked_segment_num;
+    double offload_ratio;
 };
 
 
@@ -86,6 +87,9 @@ void ingest_and_flush_data_via_zcurve_partition(struct simple_query_engine *engi
 
 void ingest_and_flush_data_via_zcurve_partition_with_sort_option(struct simple_query_engine *engine, FILE *fp, int block_num, int sort_option);
 
+
+// geolife data
+void ingest_and_flush_geolife_data_via_zcurve_partition_with_sort_option(struct simple_query_engine *engine, FILE *fp, int block_num, int sort_option);
 
 /**
  *

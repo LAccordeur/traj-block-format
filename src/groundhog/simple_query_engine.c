@@ -21,6 +21,7 @@
 #include "groundhog/nyc_dataset_reader.h"
 #include "groundhog/knn_util.h"
 #include "groundhog/osm_dataset_reader.h"
+#include "groundhog/geolife_dataset_reader.h"
 
 static bool enable_estimated_result_size = false;
 static int REQUEST_BATCH_SIZE = 1;  // when using a large batch size, the performance is not good. This needs more investigation
@@ -608,6 +609,73 @@ void ingest_nyc_data_via_zcurve_partition_with_sort_option(struct simple_query_e
 
 
 
+void ingest_geolife_data_via_zcurve_partition_with_sort_option(struct simple_query_engine *engine, FILE *fp, int block_num, int sort_option) {
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+    // trajectory block info
+    int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM);
+
+    int buffer_size = 1024 * 8; // the number of block
+    int i;
+    int previous_read_line_num = -1;
+    for (i = 0; i < block_num; i+= buffer_size) {
+
+        int used_buffer_size = block_num - i < buffer_size ? block_num - i : buffer_size;
+        int total_points_num = points_num * used_buffer_size;
+
+        struct traj_point **points_buffer = allocate_points_memory(total_points_num);
+        int read_line_num = read_points_from_csv_geolife(fp, points_buffer, i * points_num, total_points_num);
+        if (read_line_num == 0 || (previous_read_line_num != -1 && read_line_num != previous_read_line_num)) {
+            break;
+        }
+        previous_read_line_num = read_line_num;
+        //sort_traj_points_zcurve(points_buffer, total_points_num);
+        if (sort_option == 1) {
+            sort_traj_points_zcurve_with_option(points_buffer, total_points_num, 1);
+        } else if (sort_option == 2) {
+            sort_traj_points_zcurve_with_option(points_buffer, total_points_num, 2);
+        } else {
+            sort_traj_points_zcurve_with_option(points_buffer, total_points_num, 3);
+        }
+
+        for (int j = 0; j < used_buffer_size; j++) {
+            struct traj_point **points = points_buffer + j * points_num;
+
+            // convert and put this data to traj storage
+            void *data = malloc(TRAJ_BLOCK_SIZE);
+            do_self_contained_traj_block(points, points_num, data, TRAJ_BLOCK_SIZE);
+            struct address_pair data_addresses = append_traj_block_to_storage(data_storage, data);
+
+            // update index
+            struct index_entry *entry = malloc(sizeof(struct index_entry));
+            init_index_entry(entry);
+            fill_index_entry(entry, points, points_num, data_addresses.physical_ptr, data_addresses.logical_adr);
+            append_index_entry_to_storage(index_storage, entry);
+
+            // update seg_meta store
+            struct seg_meta_section_entry *seg_entry = (struct seg_meta_section_entry *)malloc(sizeof(struct seg_meta_section_entry));
+            struct traj_block_header header;
+            parse_traj_block_for_header(data, &header);
+            int meta_section_size = get_seg_meta_section_size(data);
+            void* meta_section = malloc(meta_section_size);
+            extract_seg_meta_section(data, meta_section);
+            seg_entry->seg_meta_count = header.seg_count;
+            seg_entry->seg_meta_section = meta_section;
+            seg_entry->block_logical_adr = data_addresses.logical_adr;
+            append_to_seg_meta_entry_storage(meta_storage, seg_entry);
+        }
+
+        free_points_memory(points_buffer, total_points_num);
+    }
+
+
+    debug_print("[ingest_geolife_data_via_zcurve_partition] num of ingesting data points (not accurate): %d\n", points_num * (i - 1));
+
+}
+
+
+
 
 void ingest_data_via_zcurve_partition_with_block_index(struct simple_query_engine *engine, FILE *fp, int block_index, int block_num) {
     struct traj_storage *data_storage = &engine->data_storage;
@@ -1063,6 +1131,33 @@ void ingest_and_flush_nyc_data_via_zcurve_partition(struct simple_query_engine *
 void ingest_and_flush_nyc_data_via_zcurve_partition_with_sort_option(struct simple_query_engine *engine, FILE *fp, int block_num, int sort_option) {
     // ingest to memory
     ingest_nyc_data_via_zcurve_partition_with_sort_option(engine, fp, block_num, sort_option);
+
+    // flush memory to disk
+    struct traj_storage *data_storage = &engine->data_storage;
+    struct index_entry_storage *index_storage = &engine->index_storage;
+    struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
+
+    // flush data storage
+    flush_traj_storage(data_storage);
+    // serialized and flush index storage
+    struct serialized_index_storage serialized_index;
+    init_serialized_index_storage(&serialized_index);
+    serialize_index_entry_storage(index_storage, &serialized_index);
+    flush_serialized_index_storage(&serialized_index, index_storage->my_fp->filename, index_storage->my_fp->fs_mode);
+    free_serialized_index_storage(&serialized_index);
+    // serialize and flush seg meta storage
+    /*struct serialized_seg_meta_section_entry_storage serialized_seg_meta;
+    init_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
+    serialize_seg_meta_section_entry_storage(meta_storage, &serialized_seg_meta);
+    flush_serialized_seg_meta_storage(&serialized_seg_meta, meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode);
+    free_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);*/
+
+}
+
+
+void ingest_and_flush_geolife_data_via_zcurve_partition_with_sort_option(struct simple_query_engine *engine, FILE *fp, int block_num, int sort_option) {
+    // ingest to memory
+    ingest_geolife_data_via_zcurve_partition_with_sort_option(engine, fp, block_num, sort_option);
 
     // flush memory to disk
     struct traj_storage *data_storage = &engine->data_storage;
@@ -2748,6 +2843,10 @@ run_spatio_temporal_query_host_multi_addr_batch(struct spatio_temporal_range_pre
                                        int block_logical_addr_count,
                                        int *block_logical_addr_vec) {
     int result_count = 0;
+
+    if (block_logical_addr_count == 0) {
+        return result_count;
+    }
 
     clock_t start, end, pure_read, comp_start, comp_end, pure_comp;
     pure_read = 0;
@@ -4805,6 +4904,10 @@ run_spatio_temporal_query_device_batch(struct spatio_temporal_range_predicate *p
     int result_count = 0;
     int total_batch_func_num = 0;
 
+    if (block_logical_addr_count == 0) {
+        return result_count;
+    }
+
     clock_t start, end, pure_read;
     pure_read = 0;
     clock_t start_all, end_all;
@@ -5112,6 +5215,7 @@ int spatio_temporal_query_with_adaptive_pushdown(struct simple_query_engine *eng
     printf("[isp adaptive] host block num: %d, device block num: %d\n", host_block_num, pushdown_block_num);
     int result_count1 = run_spatio_temporal_query_host_multi_addr(predicate, data_storage, host_block_num, blocks_for_host);
     int result_count2 = run_spatio_temporal_query_device_fpga(predicate, data_storage, meta_storage, pushdown_block_num, blocks_for_pushdown, enable_estimated_result_size);
+
 
     free(blocks_for_pushdown);
     free(blocks_for_host);

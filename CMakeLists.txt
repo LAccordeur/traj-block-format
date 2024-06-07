@@ -79,7 +79,7 @@ add_library(traj_block_format
         include/groundhog/bloom/hashf.h
         include/groundhog/nyc_dataset_reader.h
         include/groundhog/knn_util.h src/groundhog/knn_util.c
-        include/groundhog/osm_dataset_reader.h src/groundhog/osm_dataset_reader.c src/common_util.c)
+        include/groundhog/osm_dataset_reader.h src/groundhog/osm_dataset_reader.c src/common_util.c include/groundhog/geolife_dataset_reader.h src/groundhog/geolife_dataset_reader.c)
 
 
 add_executable(mymain src/groundhog/mymain.c)
