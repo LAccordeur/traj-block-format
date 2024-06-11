@@ -127,6 +127,50 @@ static void ingest_and_flush_porto_data_zcurve_with_sort_option(int data_block_n
 
 }
 
+
+static void ingest_and_flush_data_str_with_dataset_option(int data_block_num, int dataset_option) {
+    init_and_mk_fs_for_traj(false);
+
+    //int data_block_num = 1024;
+
+    FILE *data_fp_porto = fopen("/home/yangguo/Dataset/trajectory/porto_data_v2.csv", "r");
+    FILE *data_fp_nyc = fopen("/home/yangguo/Dataset/nyctaxi/pickup_trip_data_2010_2013_full_v1.csv", "r");
+    FILE *data_fp_geolife = fopen("/home/yangguo/Dataset/geolife/Geolife_v1_format.csv", "r");
+    // ingest data
+    struct simple_query_engine query_engine;
+    struct my_file data_file = {NULL, DATA_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file index_file = {NULL, INDEX_FILENAME, "w", SPDK_FS_MODE};
+    struct my_file meta_file = {NULL, SEG_META_FILENAME, "w", SPDK_FS_MODE};
+    init_query_engine_with_persistence(&query_engine, &data_file, &index_file, &meta_file);
+    if (dataset_option == 1) {
+        ingest_and_flush_data_via_str_with_dataset_option(&query_engine, data_fp_porto, data_block_num, 1);
+    } else if (dataset_option == 2) {
+        ingest_and_flush_data_via_str_with_dataset_option(&query_engine, data_fp_nyc, data_block_num, 2);
+    } else if (dataset_option == 3) {
+        ingest_and_flush_data_via_str_with_dataset_option(&query_engine, data_fp_geolife, data_block_num, 3);
+    }
+
+    double total_time_width = 0;
+    double total_lon_width = 0;
+    double total_lat_width = 0;
+    // print temporal meta information for each block
+    struct index_entry_storage *index_storage = &query_engine.index_storage;
+    for (int i = 0; i <= index_storage->current_index; i++) {
+        struct index_entry *entry = index_storage->index_entry_base[i];
+        printf("block pointer: [%d], time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n", entry->block_logical_adr, entry->time_min, entry->time_max, entry->lon_min, entry->lon_max, entry->lat_min, entry->lat_max);
+        total_time_width += (entry->time_max - entry->time_min);
+        total_lon_width += (entry->lon_max - entry->lon_min);
+        total_lat_width += (entry->lat_max - entry->lat_min);
+    }
+    printf("mbr shape: time width: %f, lon width: %f, lat width: %f\n", total_time_width / index_storage->current_index, total_lon_width / index_storage->current_index,
+           total_lat_width / index_storage->current_index);
+    printf("block num: %d\n", index_storage->current_index);
+    // save filesystem meta
+    spdk_flush_static_fs_meta_for_traj();
+
+}
+
+
 static void ingest_and_flush_porto_data_zcurve_segment_num(int data_block_num) {
     init_and_mk_fs_for_traj(false);
 
@@ -2221,6 +2265,7 @@ void exp_spatio_temporal_query_nyc_index_scan_with_query_file(FILE *query_fp) {
         offload_ratio_arr[i] = predicates[i]->statistics.offload_ratio;
         offload_selectivity_arr[i] = predicates[i]->statistics.offload_selectivity;
         host_selectivity_arr[i] = predicates[i]->statistics.host_selectivity;
+        printf("selectivity: %f\n", host_selectivity_arr[i]);
         printf("\n\n\n");
 
     }
@@ -3367,6 +3412,20 @@ void ingest_and_flush_osm_data_zcurve_no_preferred() {
     ingest_and_flush_osm_data_zcurve_large_with_sort_option(197949, 1, 3);
 }
 
+void ingest_and_flush_porto_data_str() {
+    ingest_and_flush_data_str_with_dataset_option(197949, 1);
+}
+
+
+void ingest_and_flush_nyc_data_str() {
+    ingest_and_flush_data_str_with_dataset_option(197949, 2);
+}
+
+void ingest_and_flush_geolife_data_str() {
+    ingest_and_flush_data_str_with_dataset_option(197949, 3);
+}
+
+
 int main(void) {
     // block pointer: [32767], time min: 7372575, time max: 7372799
     // block pointer: [65535], time min: 14745375, time max: 14745599
@@ -3472,7 +3531,7 @@ int main(void) {
     // mbr shape: time width: 11190.552120, lon width: 1333.002182, lat width: 1824.709292
     //ingest_and_flush_porto_data_zcurve_full_no_preferred();
 
-    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_009.query", "r");
+    //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_001.query", "r");
     //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_time_10min.query", "r");
     //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_general_05_24h.query", "r");
     //exp_spatio_temporal_query_porto_index_scan_with_query_file(query_fp);
@@ -3486,8 +3545,8 @@ int main(void) {
     // mbr shape: time width: 6590.068932, lon width: 730.765918, lat width: 978.363995
     //ingest_and_flush_nyc_data_zcurve_full_no_preferred();
 
-    FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_space_017.query", "r");
-    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_time_50min.query", "r");
+    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_space_001.query", "r");
+    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_time_10min.query", "r");
     //exp_spatio_temporal_query_nyc_index_scan_with_query_file(query_fp_nyc);
 
 
@@ -3501,7 +3560,7 @@ int main(void) {
     // mbr shape: time width: 47250.145745, lon width: 312659.782332, lat width: 444011.467370
     //ingest_and_flush_osm_data_zcurve_no_preferred();
 
-    FILE *query_fp_osm = fopen("/home/yangguo/Codes/groundhog/query-workload/osm_st_space_001.query", "r");
+    //FILE *query_fp_osm = fopen("/home/yangguo/Codes/groundhog/query-workload/osm_st_space_001.query", "r");
     //FILE *query_fp_osm = fopen("/home/yangguo/Codes/groundhog/query-workload/osm_st_time_50min.query", "r");
     //exp_spatio_temporal_query_osm_index_scan_with_query_file(query_fp_osm);
 
@@ -3517,8 +3576,31 @@ int main(void) {
     //ingest_and_flush_geolife_data_zcurve_full_no_preferred();
 
     //FILE *query_fp_geolife = fopen("/home/yangguo/Codes/groundhog/query-workload/geolife_st_space_009.query", "r");
-    FILE *query_fp_geolife = fopen("/home/yangguo/Codes/groundhog/query-workload/geolife_st_time_50min.query", "r");
+    //FILE *query_fp_geolife = fopen("/home/yangguo/Codes/groundhog/query-workload/geolife_st_time_50min.query", "r");
     //exp_spatio_temporal_query_geolife_index_scan_with_query_file(query_fp_geolife);
+
+
+
+
+    // str data layout
+
+    //ingest_and_flush_porto_data_str();
+    //FILE *query_fp_porto = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_001.query", "r");
+    //FILE *query_fp_porto = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_time_5h.query", "r");
+    //exp_spatio_temporal_query_porto_index_scan_with_query_file(query_fp_porto);
+
+
+    //ingest_and_flush_nyc_data_str();
+    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_space_009.query", "r");
+    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_time_5h.query", "r");
+    //exp_spatio_temporal_query_nyc_index_scan_with_query_file(query_fp_nyc);
+
+
+    //ingest_and_flush_geolife_data_str();
+    //FILE *query_fp_geolife = fopen("/home/yangguo/Codes/groundhog/query-workload/geolife_st_space_009.query", "r");
+    FILE *query_fp_geolife = fopen("/home/yangguo/Codes/groundhog/query-workload/geolife_st_time_5h.query", "r");
+    exp_spatio_temporal_query_geolife_index_scan_with_query_file(query_fp_geolife);
+
 
     printf("%d\n", calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM));
 

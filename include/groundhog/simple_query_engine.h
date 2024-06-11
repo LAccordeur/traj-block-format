@@ -93,6 +93,8 @@ void ingest_and_flush_data_via_zcurve_partition_with_sort_option(struct simple_q
 // geolife data
 void ingest_and_flush_geolife_data_via_zcurve_partition_with_sort_option(struct simple_query_engine *engine, FILE *fp, int block_num, int sort_option);
 
+void ingest_and_flush_data_via_str_with_dataset_option(struct simple_query_engine *engine, FILE *fp, int block_num, int dataset_option);
+
 /**
  *
  * @param engine
