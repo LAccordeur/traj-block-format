@@ -928,7 +928,7 @@ void ingest_osm_data_via_zcurve_partition_with_block_index_with_sort_option(stru
     int points_num = calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM);
 
     //int buffer_size = 1024 * 8; // the number of block
-    int buffer_size = 1024 * 64; // the number of block
+    int buffer_size = 1024 * 128; // the number of block
     for (int i = 0; i < block_num; i+= buffer_size) {
 
         int used_buffer_size = block_num - i < buffer_size ? block_num - i : buffer_size;
@@ -4221,6 +4221,7 @@ run_spatio_temporal_query_in_host_batch(struct spatio_temporal_range_predicate *
     printf("[host batch] query time: %f\n",(double)(end-start_config));
     printf("[host batch] result count: %d\n",result_count);
     predicate->statistics.result_count = result_count;
+    predicate->statistics.host_comp_time = pure_computation;
     return pure_read + pure_computation;
 }
 

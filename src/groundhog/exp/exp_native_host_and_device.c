@@ -2050,6 +2050,7 @@ void exp_spatio_temporal_query_porto_index_scan_with_query_file(FILE *query_fp) 
     double offload_ratio_arr[query_num];
     double offload_selectivity_arr[query_num];
     double host_selectivity_arr[query_num];
+    long host_comp_time_arr[query_num];
 
     int running_time;
     double selectivity;
@@ -2127,6 +2128,7 @@ void exp_spatio_temporal_query_porto_index_scan_with_query_file(FILE *query_fp) 
         offload_selectivity_arr[i] = predicates[i]->statistics.offload_selectivity;
         host_selectivity_arr[i] = predicates[i]->statistics.host_selectivity;
 
+        host_comp_time_arr[i] = predicates[i]->statistics.host_comp_time;
 
         printf("\n\n\n");
 
@@ -2148,6 +2150,7 @@ void exp_spatio_temporal_query_porto_index_scan_with_query_file(FILE *query_fp) 
     printf("[avg offload ratio] %f\n", average_values_double(offload_ratio_arr, query_num));
     printf("[avg offload selectivity] %f\n", average_values_double(offload_selectivity_arr, query_num));
     printf("[avg host selectivity] %f\n", average_values_double(host_selectivity_arr, query_num));
+    printf("[avg host comp time] %f\n", average_values(host_comp_time_arr, query_num));
 
     free_spatio_temporal_predicate_mem(predicates, query_num);
     free_query_engine(&rebuild_engine);
@@ -3531,9 +3534,9 @@ int main(void) {
     // mbr shape: time width: 11190.552120, lon width: 1333.002182, lat width: 1824.709292
     //ingest_and_flush_porto_data_zcurve_full_no_preferred();
 
-    //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_001.query", "r");
+    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_001.query", "r");
     //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_time_10min.query", "r");
-    //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_general_05_24h.query", "r");
+
     //exp_spatio_temporal_query_porto_index_scan_with_query_file(query_fp);
 
 
@@ -3553,16 +3556,16 @@ int main(void) {
 
 
     // osm
-    // mbr shape: time width: 177.460267, lon width: 320978.035686, lat width: 316296.943637
+    // mbr shape: time width: 177.510457, lon width: 320894.568952, lat width: 316252.521036
     //ingest_and_flush_osm_data_zcurve_time_preferred();
-    // mbr shape: time width: 455449.551372, lon width: 12243.755739, lat width: 9358.369860
+    // mbr shape: time width: 930691.668317, lon width: 9961.532084, lat width: 7534.925758
     //ingest_and_flush_osm_data_zcurve_space_preferred();
-    // mbr shape: time width: 47250.145745, lon width: 312659.782332, lat width: 444011.467370
+    // mbr shape: time width: 45534.627124, lon width: 308627.210682, lat width: 399813.083234
     //ingest_and_flush_osm_data_zcurve_no_preferred();
 
-    //FILE *query_fp_osm = fopen("/home/yangguo/Codes/groundhog/query-workload/osm_st_space_001.query", "r");
-    //FILE *query_fp_osm = fopen("/home/yangguo/Codes/groundhog/query-workload/osm_st_time_50min.query", "r");
-    //exp_spatio_temporal_query_osm_index_scan_with_query_file(query_fp_osm);
+    //FILE *query_fp_osm = fopen("/home/yangguo/Codes/groundhog/query-workload/osm_st_space_009.query", "r");
+    FILE *query_fp_osm = fopen("/home/yangguo/Codes/groundhog/query-workload/osm_st_time_50min.query", "r");
+    exp_spatio_temporal_query_osm_index_scan_with_query_file(query_fp_osm);
 
 
 
@@ -3598,8 +3601,8 @@ int main(void) {
 
     //ingest_and_flush_geolife_data_str();
     //FILE *query_fp_geolife = fopen("/home/yangguo/Codes/groundhog/query-workload/geolife_st_space_009.query", "r");
-    FILE *query_fp_geolife = fopen("/home/yangguo/Codes/groundhog/query-workload/geolife_st_time_5h.query", "r");
-    exp_spatio_temporal_query_geolife_index_scan_with_query_file(query_fp_geolife);
+    //FILE *query_fp_geolife = fopen("/home/yangguo/Codes/groundhog/query-workload/geolife_st_time_5h.query", "r");
+    //exp_spatio_temporal_query_geolife_index_scan_with_query_file(query_fp_geolife);
 
 
     printf("%d\n", calculate_points_num_via_block_size(TRAJ_BLOCK_SIZE, SPLIT_SEGMENT_NUM));

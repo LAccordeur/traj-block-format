@@ -32,6 +32,7 @@ struct query_statistics {
     double offload_ratio;
     double offload_selectivity;
     double host_selectivity;
+    long host_comp_time;
 };
 
 
