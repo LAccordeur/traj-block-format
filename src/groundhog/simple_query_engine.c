@@ -27,7 +27,7 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-static bool enable_estimated_result_size = false;
+static bool enable_estimated_result_size = true;
 static int REQUEST_BATCH_SIZE = 1;  // when using a large batch size, the performance is not good. This needs more investigation
 static int KNN_RANGE_EXTEND_VALUE = 0;
 
@@ -1312,11 +1312,11 @@ void ingest_and_flush_nyc_data_via_zcurve_partition_with_sort_option(struct simp
     flush_serialized_index_storage(&serialized_index, index_storage->my_fp->filename, index_storage->my_fp->fs_mode);
     free_serialized_index_storage(&serialized_index);
     // serialize and flush seg meta storage
-    /*struct serialized_seg_meta_section_entry_storage serialized_seg_meta;
+    struct serialized_seg_meta_section_entry_storage serialized_seg_meta;
     init_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
     serialize_seg_meta_section_entry_storage(meta_storage, &serialized_seg_meta);
     flush_serialized_seg_meta_storage(&serialized_seg_meta, meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode);
-    free_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);*/
+    free_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
 
 }
 
@@ -1339,11 +1339,11 @@ void ingest_and_flush_geolife_data_via_zcurve_partition_with_sort_option(struct 
     flush_serialized_index_storage(&serialized_index, index_storage->my_fp->filename, index_storage->my_fp->fs_mode);
     free_serialized_index_storage(&serialized_index);
     // serialize and flush seg meta storage
-    /*struct serialized_seg_meta_section_entry_storage serialized_seg_meta;
+    struct serialized_seg_meta_section_entry_storage serialized_seg_meta;
     init_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
     serialize_seg_meta_section_entry_storage(meta_storage, &serialized_seg_meta);
     flush_serialized_seg_meta_storage(&serialized_seg_meta, meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode);
-    free_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);*/
+    free_serialized_seg_meta_section_entry_storage(&serialized_seg_meta);
 
 }
 
@@ -1507,7 +1507,7 @@ void rebuild_query_engine_from_file(struct simple_query_engine *engine) {
     struct seg_meta_section_entry_storage *meta_storage = &engine->seg_meta_storage;
 
     rebuild_index_storage(index_storage->my_fp->filename, index_storage->my_fp->fs_mode, index_storage);
-    //rebuild_seg_meta_storage(meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode, meta_storage);
+    rebuild_seg_meta_storage(meta_storage->my_fp->filename, meta_storage->my_fp->fs_mode, meta_storage);
 
 }
 
@@ -5447,7 +5447,7 @@ int spatio_temporal_query_with_adaptive_pushdown_batch(struct simple_query_engin
     bool flag_for_pushdown[block_logical_addr_count];
     int pushdown_block_num = 0;
     for (int i = 0; i < block_logical_addr_count; i++) {
-        if (calculate_overlap_for_spatio_temporal(index_storage, block_logical_addr_vec[i], predicate) < 0.25) {
+        if (calculate_overlap_for_spatio_temporal(index_storage, block_logical_addr_vec[i], predicate) <= 0.35) {
             flag_for_pushdown[i] = true;
             pushdown_block_num++;
         } else {

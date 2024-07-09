@@ -1747,15 +1747,15 @@ void ingest_and_flush_geolife_data_zcurve_full_no_preferred() {
 
 
 void ingest_and_flush_nyc_data_zcurve_full_time_preferred() {
-    ingest_and_flush_nyc_data_zcurve_with_sort_option(197949, 1);
+    ingest_and_flush_nyc_data_zcurve_with_sort_option(167949, 1);
 }
 
 void ingest_and_flush_nyc_data_zcurve_full_space_preferred() {
-    ingest_and_flush_nyc_data_zcurve_with_sort_option(197949, 2);
+    ingest_and_flush_nyc_data_zcurve_with_sort_option(167949, 2);
 }
 
 void ingest_and_flush_nyc_data_zcurve_full_no_preferred() {
-    ingest_and_flush_nyc_data_zcurve_with_sort_option(197949, 3);
+    ingest_and_flush_nyc_data_zcurve_with_sort_option(167949, 3);
 }
 
 
@@ -2076,11 +2076,11 @@ void exp_spatio_temporal_query_porto_index_scan_with_query_file(FILE *query_fp) 
 
             printf("\n");
 
-            query_start = clock();
-            running_time = exp_native_spatio_temporal_host_batch_v1(predicates[i], &rebuild_engine);
-            query_end = clock();
-            host_time[i] = query_end - query_start;
-            host_time_pure[i] = running_time;
+        query_start = clock();
+        running_time = exp_native_spatio_temporal_host_batch_v1(predicates[i], &rebuild_engine);
+        query_end = clock();
+        host_time[i] = query_end - query_start;
+        host_time_pure[i] = running_time;
 
             printf("\n");
 
@@ -2114,8 +2114,8 @@ void exp_spatio_temporal_query_porto_index_scan_with_query_file(FILE *query_fp) 
         block_num[i] = running_time;
 
 
-    selectivity = exp_native_spatio_temporal_selectivity_batch_v1(predicates[i], &rebuild_engine);
-    selectivity_arr[i] = selectivity;
+        selectivity = exp_native_spatio_temporal_selectivity_batch_v1(predicates[i], &rebuild_engine);
+        selectivity_arr[i] = selectivity;
 
     if (predicates[i]->statistics.total_segment_num != 0) {
         pruning_ratio_arr[i] = 1.0 * predicates[i]->statistics.checked_segment_num /
@@ -2595,7 +2595,7 @@ void exp_spatio_temporal_query_porto_index_scan_segment_num() {
     clock_t start, end, query_start, query_end;
     start = clock();
     for (int i = 0; i < query_num; i++) {
-        if (i == 14 || i == 15 || i == 17) {
+        //if (i == 14 || i == 15 || i == 17) {
             printf("i: %d\n", i);
             printf("time min: %d, time max: %d, lon min: %d, lon max: %d, lat min: %d, lat max: %d\n",
                    predicates[i]->time_min,
@@ -2604,7 +2604,7 @@ void exp_spatio_temporal_query_porto_index_scan_segment_num() {
             predicates[i]->statistics.total_segment_num = 0;
             predicates[i]->statistics.checked_segment_num = 0;
 
-            /*query_start = clock();
+            query_start = clock();
             running_time = exp_native_spatio_temporal_host_io_opt_batch_v1(predicates[i], &rebuild_engine);
             query_end = clock();
             host_ioopt_time[i] = query_end - query_start;
@@ -2624,7 +2624,7 @@ void exp_spatio_temporal_query_porto_index_scan_segment_num() {
             running_time = exp_native_spatio_temporal_armcpu_full_pushdown_batch_naive_v1(predicates[i], &rebuild_engine);
             query_end = clock();
             device_time_naive[i] = query_end - query_start;
-            device_time_naive_pure[i] = running_time;*/
+            device_time_naive_pure[i] = running_time;
 
             printf("\n");
 
@@ -2635,11 +2635,11 @@ void exp_spatio_temporal_query_porto_index_scan_segment_num() {
             device_time_mbr_pruning_pure[i] = running_time;
             printf("\n");
 
-            /*query_start = clock();
+            query_start = clock();
             running_time = exp_native_spatio_temporal_adaptive_pushdown_batch_v1(predicates[i], &rebuild_engine);
             query_end = clock();
             device_time[i] = query_end - query_start;
-            device_time_pure[i] = running_time;*/
+            device_time_pure[i] = running_time;
 
             printf("\n");
 
@@ -2660,7 +2660,7 @@ void exp_spatio_temporal_query_porto_index_scan_segment_num() {
 
             //printf("selectivity: %f\n", (1.0 * result_count / 30000000.0));
             printf("\n\n\n");
-        }
+        //}
     }
     end = clock();
     printf("total time: %f\n",(double)(end-start));
@@ -3421,7 +3421,7 @@ void ingest_and_flush_porto_data_str() {
 
 
 void ingest_and_flush_nyc_data_str() {
-    ingest_and_flush_data_str_with_dataset_option(197949, 2);
+    ingest_and_flush_data_str_with_dataset_option(147949, 2);
 }
 
 void ingest_and_flush_geolife_data_str() {
@@ -3534,7 +3534,7 @@ int main(void) {
     // mbr shape: time width: 11190.552120, lon width: 1333.002182, lat width: 1824.709292
     //ingest_and_flush_porto_data_zcurve_full_no_preferred();
 
-    FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_001.query", "r");
+    //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_017.query", "r");
     //FILE *query_fp = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_time_10min.query", "r");
 
     //exp_spatio_temporal_query_porto_index_scan_with_query_file(query_fp);
@@ -3548,8 +3548,8 @@ int main(void) {
     // mbr shape: time width: 6590.068932, lon width: 730.765918, lat width: 978.363995
     //ingest_and_flush_nyc_data_zcurve_full_no_preferred();
 
-    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_space_001.query", "r");
-    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_time_10min.query", "r");
+    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_space_011.query", "r");
+    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_time_50min.query", "r");
     //exp_spatio_temporal_query_nyc_index_scan_with_query_file(query_fp_nyc);
 
 
@@ -3564,8 +3564,8 @@ int main(void) {
     //ingest_and_flush_osm_data_zcurve_no_preferred();
 
     //FILE *query_fp_osm = fopen("/home/yangguo/Codes/groundhog/query-workload/osm_st_space_009.query", "r");
-    FILE *query_fp_osm = fopen("/home/yangguo/Codes/groundhog/query-workload/osm_st_time_50min.query", "r");
-    exp_spatio_temporal_query_osm_index_scan_with_query_file(query_fp_osm);
+    //FILE *query_fp_osm = fopen("/home/yangguo/Codes/groundhog/query-workload/osm_st_time_50min.query", "r");
+    //exp_spatio_temporal_query_osm_index_scan_with_query_file(query_fp_osm);
 
 
 
@@ -3589,19 +3589,19 @@ int main(void) {
 
     //ingest_and_flush_porto_data_str();
     //FILE *query_fp_porto = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_space_001.query", "r");
-    //FILE *query_fp_porto = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_time_5h.query", "r");
+    //FILE *query_fp_porto = fopen("/home/yangguo/Codes/groundhog/query-workload/porto_st_time_50min.query", "r");
     //exp_spatio_temporal_query_porto_index_scan_with_query_file(query_fp_porto);
 
 
     //ingest_and_flush_nyc_data_str();
     //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_space_009.query", "r");
-    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_time_5h.query", "r");
+    //FILE *query_fp_nyc = fopen("/home/yangguo/Codes/groundhog/query-workload/nyc_st_time_50min.query", "r");
     //exp_spatio_temporal_query_nyc_index_scan_with_query_file(query_fp_nyc);
 
 
     //ingest_and_flush_geolife_data_str();
     //FILE *query_fp_geolife = fopen("/home/yangguo/Codes/groundhog/query-workload/geolife_st_space_009.query", "r");
-    //FILE *query_fp_geolife = fopen("/home/yangguo/Codes/groundhog/query-workload/geolife_st_time_5h.query", "r");
+    //FILE *query_fp_geolife = fopen("/home/yangguo/Codes/groundhog/query-workload/geolife_st_time_50min.query", "r");
     //exp_spatio_temporal_query_geolife_index_scan_with_query_file(query_fp_geolife);
 
 
